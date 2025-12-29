@@ -52,7 +52,7 @@ async function apiSubmitPick({ eventId, name, pick }) {
 const PickerPage = {
   async init() {
     const form = $("pickForm");
-    const status = $("status"); // optional, if you have it
+    const status = $("statusLine"); // optional, if you have it
     const eventSelect = $("eventId"); // you will add this dropdown to HTML
     const submitBtn = $("submitBtn"); // give your button id="submitBtn"
 
