@@ -70,6 +70,7 @@ const App = {
     const adminBlock = $("adminBlock");
     const adminKeyBtn = $("adminKeyBtn");
     const resetBtn = $("resetBtn");
+    const revealBtn = $("revealBtn");
     const adminStatus = $("adminStatus");
 
     const setStatus = (msg, type = "warn") => {
@@ -161,6 +162,28 @@ const App = {
         }
       });
     }
+
+    if (revealBtn) {
+  revealBtn.addEventListener("click", async () => {
+    const k = getSavedAdminKey();
+    if (!k) {
+      setAdminStatus("No admin key set.", "warn");
+      return;
+    }
+
+    if (!confirm("Force reveal now, lock submissions, and show picks?")) return;
+
+    const res = await apiAdmin("reveal", k);
+    if (res.ok) {
+      showToast("Revealed.", "ok");
+      setAdminStatus("Picks revealed.", "ok");
+      await refreshUI();
+    } else {
+      showToast(res.message || "Reveal failed.", "warn");
+      setAdminStatus(res.message || "Reveal failed.", "warn");
+    }
+  });
+}
 
     if (resetBtn) {
       resetBtn.addEventListener("click", async () => {
