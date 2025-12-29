@@ -1,240 +1,125 @@
-// ====== CONFIG ======
+// 1) PUT YOUR WORKER URL HERE
 const API_BASE = "https://twilight-tree-42ce.hiattgafnea0.workers.dev";
 
-// ====== API STORE ======
-const Store = {
-  async getSettings() {
-    try {
-      const r = await fetch(`${API_BASE}/settings`, { method: "GET" });
-      if (!r.ok) return { locked: false, revealed: false };
-      return await r.json();
-    } catch {
-      return { locked: false, revealed: false };
-    }
-  },
+// 2) EVENT LIST, edit anytime
+// id must be stable, it becomes eventId in your Worker storage
+const EVENTS = [
+  { id: "test-week", name: "Test Week" },
 
-  async addPick({ name, pick }) {
-    try {
-      const r = await fetch(`${API_BASE}/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, pick }),
-      });
+  // Add your real season events here
+  // { id: "sentry", name: "The Sentry" },
+  // { id: "sony-open", name: "Sony Open in Hawaii" },
+  // { id: "farmers", name: "Farmers Insurance Open" },
+  // ...
+];
 
-      const data = await safeJson(r);
-      if (!r.ok) return { ok: false, message: data?.message || "Submit failed." };
-      return data;
-    } catch {
-      return { ok: false, message: "Network error submitting pick." };
-    }
-  },
+const el = (id) => document.getElementById(id);
 
-  async getPicks() {
-    try {
-      const r = await fetch(`${API_BASE}/picks`, { method: "GET" });
-      const data = await safeJson(r);
-      if (!r.ok) return { ok: false, message: data?.message || "Not available." };
-      return data; // { ok: true, picks: [...] }
-    } catch {
-      return { ok: false, message: "Network error loading picks." };
-    }
-  },
+const eventSelect = el("eventSelect");
+const nameInput = el("nameInput");
+const pickInput = el("pickInput");
+const submitBtn = el("submitBtn");
+const statusLine = el("statusLine");
+const picksBlock = el("picksBlock");
+const picksRows = el("picksRows");
 
-  async admin(action, adminKey) {
-    try {
-      const r = await fetch(`${API_BASE}/admin`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-Key": adminKey || "",
-        },
-        body: JSON.stringify({ action }),
-      });
-
-      const data = await safeJson(r);
-      if (!r.ok) return { ok: false, message: data?.message || "Admin request failed." };
-      return data; // { ok: true, settings: {...} }
-    } catch {
-      return { ok: false, message: "Network error calling admin." };
-    }
-  },
-};
-
-// ====== PAGES ======
-const PickerPage = {
-  init() {
-    const form = document.getElementById("pickForm");
-    const status = document.getElementById("status");
-
-    const refreshLockNotice = async () => {
-      const settings = await Store.getSettings();
-      if (settings.locked) {
-        status.textContent = "Picks are locked right now.";
-        status.classList.add("warn");
-        status.classList.remove("ok");
-      } else {
-        status.textContent = "";
-        status.classList.remove("warn");
-        status.classList.remove("ok");
-      }
-    };
-
-    refreshLockNotice();
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-
-      const name = document.getElementById("name").value;
-      const pick = document.getElementById("pick").value;
-
-      const result = await Store.addPick({ name, pick });
-
-      status.textContent = result.message || (result.ok ? "Pick submitted." : "Something went wrong.");
-      status.classList.toggle("ok", !!result.ok);
-      status.classList.toggle("warn", !result.ok);
-
-      if (result.ok) form.reset();
-
-      await refreshLockNotice();
-    });
-  },
-};
-
-const RevealPage = {
-  init() {
-    const state = document.getElementById("revealState");
-    const lockedBox = document.getElementById("lockedBox");
-    const tableWrap = document.getElementById("tableWrap");
-    const rows = document.getElementById("rows");
-
-    const render = async () => {
-      const settings = await Store.getSettings();
-      state.textContent = `Locked: ${settings.locked ? "Yes" : "No"}, Revealed: ${settings.revealed ? "Yes" : "No"}`;
-
-      if (!settings.revealed) {
-        lockedBox.hidden = false;
-        tableWrap.hidden = true;
-        rows.innerHTML = "";
-        return;
-      }
-
-      const res = await Store.getPicks();
-      if (!res.ok) {
-        lockedBox.hidden = false;
-        tableWrap.hidden = true;
-        rows.innerHTML = "";
-        return;
-      }
-
-      lockedBox.hidden = true;
-      tableWrap.hidden = false;
-
-      const picks = (res.picks || [])
-        .slice()
-        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
-
-      rows.innerHTML = picks
-        .map((p) => {
-          const d = new Date(p.ts);
-          const t = isNaN(d.getTime()) ? "" : d.toLocaleString();
-          return `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.pick)}</td><td>${escapeHtml(t)}</td></tr>`;
-        })
-        .join("");
-    };
-
-    render();
-  },
-};
-
-const AdminPage = {
-  init() {
-    const status = document.getElementById("status");
-    const toggleLock = document.getElementById("toggleLock");
-    const toggleReveal = document.getElementById("toggleReveal");
-    const reset = document.getElementById("reset");
-
-    const getAdminKey = () => {
-      return sessionStorage.getItem("picker_admin_key") || "";
-    };
-
-    const ensureAdminKey = () => {
-      let key = getAdminKey();
-      if (key) return key;
-
-      key = prompt("Enter admin key");
-      if (!key) return "";
-      sessionStorage.setItem("picker_admin_key", key);
-      return key;
-    };
-
-    const refreshButtons = async () => {
-      const s = await Store.getSettings();
-      toggleLock.textContent = s.locked ? "Unlock picks" : "Lock picks";
-      toggleReveal.textContent = s.revealed ? "Hide reveal" : "Reveal picks";
-      status.textContent = `Locked: ${s.locked ? "Yes" : "No"}, Revealed: ${s.revealed ? "Yes" : "No"}`;
-      status.className = "status";
-    };
-
-    toggleLock.addEventListener("click", async () => {
-      const key = ensureAdminKey();
-      if (!key) return;
-
-      const s = await Store.getSettings();
-      const action = s.locked ? "unlock" : "lock";
-      const res = await Store.admin(action, key);
-
-      if (!res.ok) {
-        status.textContent = res.message || "Admin action failed.";
-        status.className = "status warn";
-        return;
-      }
-
-      await refreshButtons();
-    });
-
-    toggleReveal.addEventListener("click", async () => {
-      const key = ensureAdminKey();
-      if (!key) return;
-
-      const s = await Store.getSettings();
-      const action = s.revealed ? "hide" : "reveal";
-      const res = await Store.admin(action, key);
-
-      if (!res.ok) {
-        status.textContent = res.message || "Admin action failed.";
-        status.className = "status warn";
-        return;
-      }
-
-      await refreshButtons();
-    });
-
-    reset.addEventListener("click", async () => {
-      const key = ensureAdminKey();
-      if (!key) return;
-
-      const res = await Store.admin("reset", key);
-      if (!res.ok) {
-        status.textContent = res.message || "Reset failed.";
-        status.className = "status warn";
-        return;
-      }
-
-      status.textContent = "Reset complete, picks cleared for everyone.";
-      status.className = "status warn";
-      await refreshButtons();
-    });
-
-    refreshButtons();
-  },
-};
-
-// ====== HELPERS ======
-async function safeJson(response) {
+function fmtET(iso) {
   try {
-    return await response.json();
+    const d = new Date(iso);
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(d);
   } catch {
-    return null;
+    return "";
+  }
+}
+
+function setStatus(html) {
+  statusLine.innerHTML = html;
+}
+
+function getSelectedEventId() {
+  return eventSelect.value || "";
+}
+
+async function apiGet(path) {
+  const res = await fetch(`${API_BASE}${path}`, { method: "GET" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+  return data;
+}
+
+async function apiPost(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+  return data;
+}
+
+async function refreshState() {
+  const eventId = getSelectedEventId();
+  if (!eventId) return;
+
+  // Save choice locally
+  localStorage.setItem("od_eventId", eventId);
+
+  // Load settings
+  let settings;
+  try {
+    settings = await apiGet(`/settings?eventId=${encodeURIComponent(eventId)}`);
+  } catch (e) {
+    setStatus(`<span class="warn">Could not load settings,</span> ${e.message}`);
+    submitBtn.disabled = true;
+    picksBlock.classList.add("hidden");
+    return;
+  }
+
+  const locked = !!settings.locked;
+  const revealed = !!settings.revealed;
+
+  // Status line + form state
+  if (locked && !revealed) {
+    setStatus(`<span class="warn">Picks are locked right now.</span> Reveals Wednesday 9:00 PM ET.`);
+    submitBtn.disabled = true;
+  } else if (locked && revealed) {
+    setStatus(`<span class="ok">Picks are revealed.</span> Submissions are closed for this event.`);
+    submitBtn.disabled = true;
+  } else {
+    setStatus(`<span class="ok">Picks are open.</span> They lock and reveal Wednesday 9:00 PM ET.`);
+    submitBtn.disabled = false;
+  }
+
+  // Picks table
+  if (revealed) {
+    try {
+      const data = await apiGet(`/picks?eventId=${encodeURIComponent(eventId)}`);
+      const picks = data.picks || [];
+      picksRows.innerHTML = picks
+        .map(
+          (p) => `
+          <tr>
+            <td>${escapeHtml(p.name || "")}</td>
+            <td>${escapeHtml(p.pick || "")}</td>
+            <td>${escapeHtml(fmtET(p.ts || ""))}</td>
+          </tr>
+        `
+        )
+        .join("");
+      picksBlock.classList.remove("hidden");
+    } catch (e) {
+      setStatus(`<span class="warn">Revealed, but could not load picks,</span> ${e.message}`);
+      picksBlock.classList.add("hidden");
+    }
+  } else {
+    picksBlock.classList.add("hidden");
   }
 }
 
@@ -246,3 +131,56 @@ function escapeHtml(str) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+async function submitPick() {
+  const eventId = getSelectedEventId();
+  const name = (nameInput.value || "").trim();
+  const pick = (pickInput.value || "").trim();
+
+  if (!eventId) return setStatus(`<span class="warn">Pick an event first.</span>`);
+  if (!name || !pick) return setStatus(`<span class="warn">Name and pick are required.</span>`);
+
+  // Save name locally for convenience
+  localStorage.setItem("od_name", name);
+
+  submitBtn.disabled = true;
+  setStatus(`Submitting...`);
+
+  try {
+    await apiPost("/submit", { eventId, name, pick });
+    setStatus(`<span class="ok">Pick submitted.</span>`);
+  } catch (e) {
+    setStatus(`<span class="warn">${escapeHtml(e.message)}</span>`);
+  } finally {
+    await refreshState();
+  }
+}
+
+// Init
+(function init() {
+  // Fill dropdown
+  eventSelect.innerHTML = EVENTS.map(
+    (e) => `<option value="${e.id}">${e.name}</option>`
+  ).join("");
+
+  // Restore saved values
+  const savedEventId = localStorage.getItem("od_eventId");
+  const savedName = localStorage.getItem("od_name");
+  if (savedName) nameInput.value = savedName;
+
+  if (savedEventId && EVENTS.some((e) => e.id === savedEventId)) {
+    eventSelect.value = savedEventId;
+  } else {
+    eventSelect.value = EVENTS[0]?.id || "";
+  }
+
+  // Listeners
+  eventSelect.addEventListener("change", refreshState);
+  submitBtn.addEventListener("click", submitPick);
+
+  // First load
+  refreshState();
+
+  // Optional auto-refresh every 30s so it flips to revealed without a manual reload
+  setInterval(refreshState, 30000);
+})();
