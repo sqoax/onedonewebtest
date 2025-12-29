@@ -106,6 +106,27 @@
       tr:last-child td { border-bottom: none; }
 
       .hidden { display: none; }
+      [hidden] { display: none !important; }
+
+      /* Toast */
+.toast{
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  background: rgba(15, 18, 28, 0.92);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: rgba(255,255,255,0.92);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.55);
+  z-index: 9999;
+  max-width: min(520px, calc(100vw - 32px));
+  font-size: 14px;
+}
+.toast.ok { border-color: rgba(122,229,130,0.45); }
+.toast.warn { border-color: rgba(255,209,102,0.45); }
+
     </style>
   </head>
   <body>
@@ -113,18 +134,21 @@
       <h1>One & Done Picker</h1>
       <div class="sub">Submit your pick, picks auto-reveal Wednesday at 9:00 PM Eastern.</div>
 
-      <label for="eventSelect">Week, Event</label>
-      <select id="eventSelect"></select>
+    <form id="pickForm">
+   
+      <label for="eventId">Week, Event</label>
+      <select id="eventId"></select>
+    
+      <label for="name">Name</label>
+      <input id="name" type="text" placeholder="Your name" />
+      
+      <label for="pick">Pick</label>
+      <input id="pick" type="text" placeholder="Your pick" />
 
-      <label for="nameInput">Name</label>
-      <input id="nameInput" placeholder="Your name" />
-
-      <label for="pickInput">Pick</label>
-      <input id="pickInput" placeholder="Your pick" />
-
-      <button id="submitBtn" class="btn">Submit pick</button>
+      <button id="submitBtn" class="btn" type="submit">Submit pick</button>
 
       <div id="statusLine" class="status"></div>
+    </form>
 
       <div class="divider"></div>
 
