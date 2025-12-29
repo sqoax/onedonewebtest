@@ -1,178 +1,396 @@
+/* One & Done - Luxury Redesign 
+  Theme: Dark Velvet, Glass, Metallic, High-End Sportsbook
+*/
+
 :root {
-  --bg: #07080c;
-  --card: rgba(14, 16, 24, 0.85);
-  --border: rgba(255,255,255,0.08);
-  --text: #e7e9ee;
-  --muted: #9aa0aa;
-  --accent: #9ca3ff;
-  --shadow: rgba(0,0,0,0.6);
+  /* Palette */
+  --bg-deep: #050505;
+  --bg-surface: #0e0e0e;
+  --glass-bg: rgba(20, 20, 20, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shine: rgba(255, 255, 255, 0.03);
+  
+  /* Text */
+  --text-primary: #f2f2f2;
+  --text-secondary: #888888;
+  --text-tertiary: #444444;
+  
+  /* Accents */
+  --accent-gold: #c5a059; /* Muted Gold/Bronze */
+  --accent-gold-dim: #8a6e36;
+  --accent-green: #1e3a28; /* Deep Augusta Green */
+  --accent-green-bright: #2d5a3f;
+  
+  /* System */
+  --radius-lg: 24px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* Base Reset & Typography */
 * {
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
 body {
-  margin: 0;
+  font-family: var(--font-stack);
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
   min-height: 100vh;
-  background: radial-gradient(circle at top, #0f1320, #05060a 60%);
-  color: var(--text);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  overflow-x: hidden;
+  padding: 20px;
 }
 
-.container {
-  width: 100%;
-  max-width: 680px;
-  padding: 24px;
-}
-
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 28px;
-  box-shadow: 0 40px 120px var(--shadow);
-  backdrop-filter: blur(16px);
-}
-
-h1 {
-  font-size: 2.4rem;
-  margin: 0 0 4px 0;
-  letter-spacing: -0.02em;
-}
-
-.subtitle {
-  color: var(--muted);
-  margin-bottom: 24px;
-}
-
-label {
-  display: block;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: .12em;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-input {
-  width: 100%;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: rgba(0,0,0,.25);
-  color: var(--text);
-  font-size: 1rem;
-  margin-bottom: 16px;
-  outline: none;
-}
-
-input::placeholder {
-  color: #6b7280;
-}
-
-input:focus {
-  border-color: var(--accent);
-}
-
-button {
-  width: 100%;
-  padding: 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg,#181b2d,#0f1220);
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all .15s ease;
-}
-
-button:hover {
-  transform: translateY(-1px);
-  border-color: var(--accent);
-}
-
-button:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-}
-
-.status {
-  font-size: .9rem;
-  margin-top: 10px;
-  color: var(--muted);
-}
-
-.status.ok {
-  color: #86efac;
-}
-
-.status.warn {
-  color: #fde68a;
-}
-
+/* Utility Class Required by JS */
 .hidden {
   display: none !important;
 }
 
-.divider {
+/* Ambient Background Effect */
+.ambient-glow {
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(30, 30, 30, 0.4) 0%, rgba(5, 5, 5, 1) 60%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Layout Container */
+.container {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: fadeIn 0.8s var(--ease) forwards;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.logo-mark {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold-dim);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.title {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  background: linear-gradient(to bottom right, #ffffff, #aaaaaa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+}
+
+/* Status Line */
+.status-pill {
+  font-size: 13px;
+  text-align: center;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all 0.3s var(--ease);
+}
+
+.status-pill.ok {
+  color: #a3cfbb;
+  background: rgba(163, 207, 187, 0.05);
+  border-color: rgba(163, 207, 187, 0.1);
+}
+
+.status-pill.warn {
+  color: #c5a059;
+  background: rgba(197, 160, 89, 0.05);
+  border-color: rgba(197, 160, 89, 0.1);
+}
+
+/* Main Card (Glassmorphism) */
+.card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8);
+  overflow: hidden;
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Inner Shine effect */
+.glass::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
   height: 1px;
-  background: var(--border);
-  margin: 24px 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
 }
 
-#picksBlock {
+/* Form Styles */
+.pick-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+input[type="text"] {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: inherit;
+  transition: all 0.2s var(--ease);
+  outline: none;
+}
+
+input[type="text"]:focus {
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.02);
+}
+
+input[type="text"]::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Action Button */
+.action-btn {
   margin-top: 12px;
+  background: linear-gradient(135deg, #f0f0f0 0%, #d4d4d4 100%);
+  border: none;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  color: #000;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s var(--ease);
+  position: relative;
+  overflow: hidden;
 }
 
-table {
+.action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px -5px rgba(255, 255, 255, 0.1);
+}
+
+.action-btn:active {
+  transform: translateY(0);
+  opacity: 0.9;
+}
+
+.action-btn:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Picks Table (Reveal Mode) */
+.table-wrapper {
+  overflow-x: auto;
+  margin: -10px -10px; /* pull out slightly */
+}
+
+.picks-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: .95rem;
+  font-size: 14px;
 }
 
-th, td {
+.picks-table th {
   text-align: left;
-  padding: 10px 6px;
-  border-bottom: 1px solid var(--border);
-}
-
-th {
-  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--glass-border);
   font-weight: 600;
 }
 
-#adminBlock {
-  margin-top: 24px;
-  text-align: center;
+.picks-table td {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
 }
 
-#adminBlock button {
-  margin-top: 10px;
+.picks-table tr:last-child td {
+  border-bottom: none;
 }
 
+/* Highlight the player name column specifically */
+.picks-table td:first-child {
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Timestamp column styling */
+.picks-table td:last-child {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.picks-table th:last-child {
+  text-align: right;
+}
+
+/* Admin Panel - Discreet */
+.admin-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-top: 20px;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease);
+}
+
+.admin-panel:hover {
+  opacity: 1;
+}
+
+.admin-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.admin-btn {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-btn:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+.admin-btn.danger:hover {
+  border-color: #ff4d4d;
+  color: #ff4d4d;
+}
+
+.admin-status {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  min-height: 14px;
+}
+
+/* Toast Notification */
 .toast {
   position: fixed;
+  bottom: 30px;
   left: 50%;
-  bottom: 18px;
   transform: translateX(-50%);
-  padding: 12px 16px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: rgba(12,14,22,.96);
-  box-shadow: 0 20px 80px var(--shadow);
-  color: var(--text);
-  font-weight: 600;
-  z-index: 999;
+  background: rgba(20, 20, 20, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  z-index: 100;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: block; /* Overrides default hidden attr when class .hidden is removed */
 }
 
+/* Toast State modifications (applied by JS classes) */
 .toast.ok {
-  color: #86efac;
+  border-color: var(--accent-green-bright);
+  color: #e0f2e9;
 }
 
 .toast.warn {
-  color: #fde68a;
+  border-color: var(--accent-gold);
+  color: #f5e6cc;
+}
+
+/* Only strictly hide if the class is present */
+.toast.hidden {
+  transform: translate(-50%, 20px);
+  opacity: 0;
+  pointer-events: none;
+  display: block !important; /* Keep layout logic, just fade out */
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Mobile Adjustments */
+@media (max-width: 480px) {
+  .card {
+    padding: 24px 20px;
+  }
+  .title {
+    font-size: 28px;
+  }
 }
