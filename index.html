@@ -134,10 +134,7 @@
       <h1>One & Done Picker</h1>
       <div class="sub">Submit your pick, picks auto-reveal Wednesday at 9:00 PM Eastern.</div>
 
-    <form id="pickForm">
-   
-      <label for="eventId">Week, Event</label>
-      <select id="eventId"></select>
+    <form id="pickForm">x
     
       <label for="name">Name</label>
       <input id="name" type="text" placeholder="Your name" />
@@ -166,6 +163,15 @@
         </table>
       </div>
     </div>
+
+    <div class="divider"></div>
+
+<div id="adminBlock" class="hidden">
+  <label>Admin</label>
+  <button id="adminKeyBtn" class="btn" type="button">Enter admin key</button>
+  <button id="resetBtn" class="btn" type="button">Reset picks</button>
+  <div id="adminStatus" class="status"></div>
+</div>
 
     <script src="./app.js"></script>
 
