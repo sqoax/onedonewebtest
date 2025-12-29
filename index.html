@@ -1,43 +1,148 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Pick</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <main class="card">
-    <h1>Pick</h1>
-    <p class="muted">Test build, picks save locally on your device only.</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>One & Done Picker</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        background: radial-gradient(1200px 600px at 50% 10%, rgba(255,255,255,0.08), transparent 60%),
+          #05070b;
+        color: rgba(255,255,255,0.9);
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 28px 16px;
+      }
+      .card {
+        width: min(820px, 100%);
+        background: rgba(10,12,18,0.7);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 22px;
+        box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+        padding: 28px;
+        backdrop-filter: blur(10px);
+      }
+      h1 {
+        margin: 0;
+        font-size: 44px;
+        letter-spacing: -0.02em;
+      }
+      .sub {
+        margin: 6px 0 22px;
+        color: rgba(255,255,255,0.65);
+        font-size: 16px;
+      }
+      label {
+        display: block;
+        margin: 14px 0 8px;
+        color: rgba(255,255,255,0.7);
+        font-size: 14px;
+      }
+      select, input {
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,0.10);
+        background: rgba(255,255,255,0.04);
+        color: rgba(255,255,255,0.92);
+        padding: 14px 14px;
+        outline: none;
+        font-size: 16px;
+      }
+      select:focus, input:focus {
+        border-color: rgba(255,255,255,0.22);
+      }
+      .btn {
+        margin-top: 16px;
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,0.10);
+        background: rgba(255,255,255,0.06);
+        color: rgba(255,255,255,0.92);
+        padding: 14px 16px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      .btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .status {
+        margin-top: 14px;
+        color: rgba(255,255,255,0.75);
+        font-size: 14px;
+      }
+      .status .warn { color: #ffd166; }
+      .status .ok { color: #7ae582; }
 
-    <form id="pickForm" class="stack">
-      <label>
-        Name
-        <input id="name" autocomplete="name" placeholder="Hiatt" required />
-      </label>
+      .divider {
+        margin: 22px 0 14px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
 
-      <label>
-        Pick
-        <input id="pick" placeholder="Scottie Scheffler" required />
-      </label>
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,0.08);
+      }
+      th, td {
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        text-align: left;
+      }
+      th {
+        color: rgba(255,255,255,0.75);
+        font-weight: 600;
+        background: rgba(255,255,255,0.04);
+      }
+      tr:last-child td { border-bottom: none; }
 
-      <button type="submit">Submit pick</button>
-    </form>
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>One & Done Picker</h1>
+      <div class="sub">Submit your pick, picks auto-reveal Wednesday at 9:00 PM Eastern.</div>
 
-    <div class="hr"></div>
+      <label for="eventSelect">Week, Event</label>
+      <select id="eventSelect"></select>
 
-    <div class="row">
-      <a class="link" href="reveal.html">Go to reveal</a>
-      <a class="link" href="admin.html">Admin</a>
+      <label for="nameInput">Name</label>
+      <input id="nameInput" placeholder="Your name" />
+
+      <label for="pickInput">Pick</label>
+      <input id="pickInput" placeholder="Your pick" />
+
+      <button id="submitBtn" class="btn">Submit pick</button>
+
+      <div id="statusLine" class="status"></div>
+
+      <div class="divider"></div>
+
+      <div id="picksBlock" class="hidden">
+        <label>Picks</label>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Pick</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="picksRows"></tbody>
+        </table>
+      </div>
     </div>
 
-    <p id="status" class="status"></p>
-  </main>
-
-  <script src="app.js"></script>
-  <script>
-    PickerPage.init();
-  </script>
-</body>
+    <script src="./app.js"></script>
+  </body>
 </html>
