@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pick</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>Pick</h1>
+    <p class="muted">Test build, picks save locally on your device only.</p>
+
+    <form id="pickForm" class="stack">
+      <label>
+        Name
+        <input id="name" autocomplete="name" placeholder="Hiatt" required />
+      </label>
+
+      <label>
+        Pick
+        <input id="pick" placeholder="Scottie Scheffler" required />
+      </label>
+
+      <button type="submit">Submit pick</button>
+    </form>
+
+    <div class="hr"></div>
+
+    <div class="row">
+      <a class="link" href="reveal.html">Go to reveal</a>
+      <a class="link" href="admin.html">Admin</a>
+    </div>
+
+    <p id="status" class="status"></p>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    PickerPage.init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>Admin</h1>
+    <p class="muted">Test-only controls, stored locally on this device.</p>
+
+    <div class="stack">
+      <button id="toggleLock"></button>
+      <button id="toggleReveal"></button>
+      <button class="danger" id="reset">Reset all picks</button>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="row">
+      <a class="link" href="index.html">Pick</a>
+      <a class="link" href="reveal.html">Reveal</a>
+    </div>
+
+    <p id="status" class="status"></p>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    AdminPage.init();
+  </script>
+</body>
+</html>

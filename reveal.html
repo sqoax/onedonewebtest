@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Reveal</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>Reveal</h1>
+    <p id="revealState" class="muted"></p>
+
+    <div id="lockedBox" class="locked" hidden>
+      <p><strong>Locked.</strong> Picks are not revealed yet.</p>
+    </div>
+
+    <div id="tableWrap" hidden>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Pick</th><th>Time</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="row">
+      <a class="link" href="index.html">Back to pick</a>
+      <a class="link" href="admin.html">Admin</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    RevealPage.init();
+  </script>
+</body>
+</html>
