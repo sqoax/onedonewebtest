@@ -1,130 +1,190 @@
 const API_BASE = "https://twilight-tree-42ce.hiattgafnea0.workers.dev";
 
-// 1) Put your season events here
-// eventId is what gets stored in KV, keep it simple, no spaces
-const EVENTS = [
-  { id: "test-week", label: "Test Week" },
-  { id: "week-01", label: "Week 1" },
-  { id: "week-02", label: "Week 2" },
-  { id: "week-03", label: "Week 3" },
-  // keep adding…
-];
-
-function $(id) {
-  return document.getElementById(id);
-}
+function $(id) { return document.getElementById(id); }
 
 function showToast(message, type = "ok") {
   const toast = $("toast");
   if (!toast) return;
-
   toast.textContent = message;
   toast.hidden = false;
-
   toast.classList.remove("ok", "warn");
   toast.classList.add(type);
-
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => {
-    toast.hidden = true;
-  }, 2500);
+  showToast._t = setTimeout(() => { toast.hidden = true; }, 2500);
 }
 
-async function apiGetSettings(eventId) {
-  const r = await fetch(`${API_BASE}/settings?eventId=${encodeURIComponent(eventId)}`);
+async function apiGetSettings() {
+  const r = await fetch(`${API_BASE}/settings`);
   return await r.json();
 }
 
-async function apiSubmitPick({ eventId, name, pick }) {
+async function apiSubmitPick({ name, pick }) {
   const r = await fetch(`${API_BASE}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ eventId, name, pick }),
+    body: JSON.stringify({ name, pick }),
   });
-
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) {
-    return { ok: false, message: data?.message || `Error ${r.status}` };
-  }
+  if (!r.ok) return { ok: false, message: data?.message || `Error ${r.status}` };
   return data;
 }
 
-const PickerPage = {
+async function apiGetPicks() {
+  const r = await fetch(`${API_BASE}/picks`);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) return { ok: false, message: data?.message || `Error ${r.status}` };
+  return data;
+}
+
+async function apiAdmin(action, adminKey) {
+  const r = await fetch(`${API_BASE}/admin`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-Key": adminKey || "",
+    },
+    body: JSON.stringify({ action }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) return { ok: false, message: data?.message || `Error ${r.status}` };
+  return data;
+}
+
+function fmtTime(iso) {
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso || "";
+  }
+}
+
+const App = {
   async init() {
     const form = $("pickForm");
-    const status = $("statusLine"); // optional, if you have it
-    const eventSelect = $("eventId"); // you will add this dropdown to HTML
-    const submitBtn = $("submitBtn"); // give your button id="submitBtn"
+    const statusLine = $("statusLine");
+    const submitBtn = $("submitBtn");
 
-    // Build dropdown options
-    if (eventSelect) {
-      eventSelect.innerHTML = EVENTS.map(e => `<option value="${e.id}">${e.label}</option>`).join("");
-    }
+    const picksBlock = $("picksBlock");
+    const picksRows = $("picksRows");
+
+    const adminBlock = $("adminBlock");
+    const adminKeyBtn = $("adminKeyBtn");
+    const resetBtn = $("resetBtn");
+    const adminStatus = $("adminStatus");
 
     const setStatus = (msg, type = "warn") => {
-      if (!status) return;
-      status.textContent = msg;
-      status.classList.remove("ok", "warn");
-      status.classList.add(type);
+      if (!statusLine) return;
+      statusLine.textContent = msg;
+      statusLine.classList.remove("ok", "warn");
+      statusLine.classList.add(type);
     };
 
-    const refreshLockState = async () => {
-      const eventId = eventSelect ? eventSelect.value : EVENTS[0].id;
-      const s = await apiGetSettings(eventId);
+    const setAdminStatus = (msg, type = "warn") => {
+      if (!adminStatus) return;
+      adminStatus.textContent = msg;
+      adminStatus.classList.remove("ok", "warn");
+      adminStatus.classList.add(type);
+    };
 
-      // Your Worker reveals and locks at Wed 9 PM ET, until then revealed is false
+    const getSavedAdminKey = () => localStorage.getItem("one_done_admin_key") || "";
+    const saveAdminKey = (k) => localStorage.setItem("one_done_admin_key", k);
+
+    const refreshUI = async () => {
+      const s = await apiGetSettings();
+
+      // Reveal mode
       if (s.revealed) {
-        setStatus("Picks have been revealed for this event.", "ok");
-      } else {
-        setStatus("Picks are locked until Wednesday at 9:00 PM ET.", "warn");
+        setStatus("Picks are revealed.", "ok");
+        if (form) form.classList.add("hidden");
+        if (picksBlock) picksBlock.classList.remove("hidden");
+
+        const res = await apiGetPicks();
+        if (res.ok) {
+          const picks = res.picks || [];
+          if (picksRows) {
+            picksRows.innerHTML = picks.map(p =>
+              `<tr><td>${p.name || ""}</td><td>${p.pick || ""}</td><td>${fmtTime(p.ts)}</td></tr>`
+            ).join("");
+          }
+        } else {
+          showToast(res.message || "Could not load picks.", "warn");
+        }
+        return;
       }
 
-      // If locked is true, prevent submitting
+      // Submit mode
+      setStatus("Picks are open, picks reveal Wednesday at 9:00 PM ET.", "warn");
+      if (form) form.classList.remove("hidden");
+      if (picksBlock) picksBlock.classList.add("hidden");
+
       const locked = !!s.locked;
       if (submitBtn) submitBtn.disabled = locked;
       if (locked) showToast("Picks are locked right now.", "warn");
     };
 
-    if (eventSelect) {
-      eventSelect.addEventListener("change", refreshLockState);
+    // Submit handler
+    if (form) {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = ($("name")?.value || "").trim();
+        const pick = ($("pick")?.value || "").trim();
+
+        if (!name || !pick) {
+          showToast("Enter your name and pick.", "warn");
+          return;
+        }
+
+        if (submitBtn) submitBtn.disabled = true;
+        const res = await apiSubmitPick({ name, pick });
+
+        if (res.ok) {
+          showToast(res.message || "Pick submitted.", "ok");
+          if ($("pick")) $("pick").value = "";
+        } else {
+          showToast(res.message || "Submit failed.", "warn");
+        }
+
+        if (submitBtn) submitBtn.disabled = false;
+        await refreshUI();
+      });
     }
 
-    await refreshLockState();
+    // Admin block, show it if a key exists
+    if (adminBlock) adminBlock.classList.remove("hidden");
 
-    if (!form) return;
+    if (adminKeyBtn) {
+      adminKeyBtn.addEventListener("click", () => {
+        const k = prompt("Enter admin key");
+        if (k && k.trim()) {
+          saveAdminKey(k.trim());
+          setAdminStatus("Admin key saved on this device.", "ok");
+        }
+      });
+    }
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
+    if (resetBtn) {
+      resetBtn.addEventListener("click", async () => {
+        const k = getSavedAdminKey();
+        if (!k) {
+          setAdminStatus("No admin key set.", "warn");
+          return;
+        }
+        if (!confirm("Reset picks, open submissions again?")) return;
 
-      const eventId = eventSelect ? eventSelect.value : EVENTS[0].id;
-      const name = $("name").value.trim();
-      const pick = $("pick").value.trim();
+        const res = await apiAdmin("reset", k);
+        if (res.ok) {
+          showToast("Reset complete.", "ok");
+          setAdminStatus("Reset complete.", "ok");
+          await refreshUI();
+        } else {
+          showToast(res.message || "Reset failed.", "warn");
+          setAdminStatus(res.message || "Reset failed.", "warn");
+        }
+      });
+    }
 
-      if (!name || !pick) {
-        showToast("Enter your name and pick.", "warn");
-        return;
-      }
-
-      if (submitBtn) submitBtn.disabled = true;
-
-      const res = await apiSubmitPick({ eventId, name, pick });
-
-      if (res.ok) {
-        showToast(res.message || "Pick submitted.", "ok");
-        // optional, clear only the pick field, keep name
-        $("pick").value = "";
-      } else {
-        showToast(res.message || "Submit failed.", "warn");
-      }
-
-      // Re-check lock state after submit
-      await refreshLockState();
-      if (submitBtn) submitBtn.disabled = false;
-    });
-  }
+    await refreshUI();
+  },
 };
 
-// Auto-run
-document.addEventListener("DOMContentLoaded", () => {
-  PickerPage.init();
-});
+document.addEventListener("DOMContentLoaded", () => App.init());
