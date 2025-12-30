@@ -13,99 +13,6 @@ function showToast(message, type = "ok") {
   showToast._t = setTimeout(() => { toast.hidden = true; }, 2500);
 }
 
-// --- Confetti System ---
-const Confetti = {
-  ctx: null,
-  canvas: null,
-  particles: [],
-  running: false,
-
-  init() {
-    this.canvas = $("confettiCanvas");
-    if (!this.canvas) return;
-    this.ctx = this.canvas.getContext("2d");
-    this.resize();
-    window.addEventListener("resize", () => this.resize());
-  },
-
-  resize() {
-    if (this.canvas) {
-      this.canvas.width = window.innerWidth;
-      this.canvas.height = window.innerHeight;
-    }
-  },
-
-  fire() {
-    if (!this.canvas) this.init();
-    if (!this.canvas) return;
-    
-    // Reset/Add particles
-    const count = 150;
-    const colors = ["#c5a059", "#ffffff", "#8a6e36", "#e0f2e9", "#2d5a3f"];
-    
-    for (let i = 0; i < count; i++) {
-      this.particles.push({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-        vx: (Math.random() - 0.5) * 25,
-        vy: (Math.random() - 1) * 20 - 5,
-        size: Math.random() * 8 + 4,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        drag: 0.95,
-        grav: 0.25,
-        rot: Math.random() * 360,
-        drot: (Math.random() - 0.5) * 10,
-        life: 1.0
-      });
-    }
-
-    if (!this.running) {
-      this.running = true;
-      this.loop();
-    }
-  },
-
-  loop() {
-    if (!this.ctx || !this.running) return;
-    
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    // Update and draw
-    for (let i = 0; i < this.particles.length; i++) {
-      const p = this.particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += p.grav;
-      p.vx *= p.drag;
-      p.vy *= p.drag;
-      p.rot += p.drot;
-      p.life -= 0.008;
-
-      if (p.life > 0) {
-        this.ctx.save();
-        this.ctx.translate(p.x, p.y);
-        this.ctx.rotate((p.rot * Math.PI) / 180);
-        this.ctx.globalAlpha = p.life;
-        this.ctx.fillStyle = p.color;
-        this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
-        this.ctx.restore();
-      }
-    }
-
-    // Cleanup dead particles
-    this.particles = this.particles.filter(p => p.life > 0);
-
-    if (this.particles.length > 0) {
-      requestAnimationFrame(() => this.loop());
-    } else {
-      this.running = false;
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-  }
-};
-
-// --- API Functions ---
-
 async function apiGetSettings() {
   const r = await fetch(`${API_BASE}/settings`);
   return await r.json();
@@ -151,31 +58,8 @@ function fmtTime(iso) {
   }
 }
 
-// --- Trigger Stamp Animation ---
-function triggerStamp() {
-  const stamp = $("lockedInStamp");
-  if (!stamp) return;
-  
-  stamp.classList.remove("hidden");
-  // Force reflow
-  void stamp.offsetWidth; 
-  stamp.classList.add("visible");
-  
-  // Flash duration ~0.8s then fade out
-  setTimeout(() => {
-    stamp.classList.remove("visible");
-    setTimeout(() => {
-      stamp.classList.add("hidden");
-    }, 300); // Wait for fade out transition
-  }, 900);
-}
-
-// --- Main App ---
-
 const App = {
   async init() {
-    Confetti.init();
-    
     const form = $("pickForm");
     const statusLine = $("statusLine");
     const submitBtn = $("submitBtn");
@@ -257,11 +141,6 @@ const App = {
         if (res.ok) {
           showToast(res.message || "Pick submitted.", "ok");
           if ($("pick")) $("pick").value = "";
-          
-          // SUCCESS VISUALS
-          triggerStamp();
-          Confetti.fire();
-          
         } else {
           showToast(res.message || "Submit failed.", "warn");
         }
@@ -285,26 +164,26 @@ const App = {
     }
 
     if (revealBtn) {
-      revealBtn.addEventListener("click", async () => {
-        const k = getSavedAdminKey();
-        if (!k) {
-          setAdminStatus("No admin key set.", "warn");
-          return;
-        }
-
-        if (!confirm("Force reveal now, lock submissions, and show picks?")) return;
-
-        const res = await apiAdmin("reveal", k);
-        if (res.ok) {
-          showToast("Revealed.", "ok");
-          setAdminStatus("Picks revealed.", "ok");
-          await refreshUI();
-        } else {
-          showToast(res.message || "Reveal failed.", "warn");
-          setAdminStatus(res.message || "Reveal failed.", "warn");
-        }
-      });
+  revealBtn.addEventListener("click", async () => {
+    const k = getSavedAdminKey();
+    if (!k) {
+      setAdminStatus("No admin key set.", "warn");
+      return;
     }
+
+    if (!confirm("Force reveal now, lock submissions, and show picks?")) return;
+
+    const res = await apiAdmin("reveal", k);
+    if (res.ok) {
+      showToast("Revealed.", "ok");
+      setAdminStatus("Picks revealed.", "ok");
+      await refreshUI();
+    } else {
+      showToast(res.message || "Reveal failed.", "warn");
+      setAdminStatus(res.message || "Reveal failed.", "warn");
+    }
+  });
+}
 
     if (resetBtn) {
       resetBtn.addEventListener("click", async () => {
