@@ -1,3 +1,15 @@
+// 1. Confetti logic with your brand colors
+const triggerConfetti = () => {
+  const colors = ['#c5a059', '#1e3a28', '#f2f2f2']; // Gold, Augusta Green, White
+  confetti({
+    particleCount: 150,
+    spread: 70,
+    origin: { y: 0.6 },
+    colors: colors,
+    zIndex: 999
+  });
+};
+
 const API_BASE = "https://twilight-tree-42ce.hiattgafnea0.workers.dev";
 
 function $(id) { return document.getElementById(id); }
@@ -93,7 +105,6 @@ const App = {
     const refreshUI = async () => {
       const s = await apiGetSettings();
 
-      // Reveal mode
       if (s.revealed) {
         setStatus("Picks are revealed.", "ok");
         if (form) form.classList.add("hidden");
@@ -113,7 +124,6 @@ const App = {
         return;
       }
 
-      // Submit mode
       setStatus("Picks are open, picks reveal Wednesday at 9:00 PM ET.", "warn");
       if (form) form.classList.remove("hidden");
       if (picksBlock) picksBlock.classList.add("hidden");
@@ -138,8 +148,10 @@ const App = {
         if (submitBtn) submitBtn.disabled = true;
         const res = await apiSubmitPick({ name, pick });
 
+        // SUCCESS LOGIC: Trigger confetti here!
         if (res.ok) {
           showToast(res.message || "Pick submitted.", "ok");
+          triggerConfetti(); // This triggers the visual effect
           if ($("pick")) $("pick").value = "";
         } else {
           showToast(res.message || "Submit failed.", "warn");
@@ -150,7 +162,6 @@ const App = {
       });
     }
 
-    // Admin block, show it if a key exists
     if (adminBlock) adminBlock.classList.remove("hidden");
 
     if (adminKeyBtn) {
@@ -164,26 +175,24 @@ const App = {
     }
 
     if (revealBtn) {
-  revealBtn.addEventListener("click", async () => {
-    const k = getSavedAdminKey();
-    if (!k) {
-      setAdminStatus("No admin key set.", "warn");
-      return;
+      revealBtn.addEventListener("click", async () => {
+        const k = getSavedAdminKey();
+        if (!k) {
+          setAdminStatus("No admin key set.", "warn");
+          return;
+        }
+        if (!confirm("Force reveal now, lock submissions, and show picks?")) return;
+        const res = await apiAdmin("reveal", k);
+        if (res.ok) {
+          showToast("Revealed.", "ok");
+          setAdminStatus("Picks revealed.", "ok");
+          await refreshUI();
+        } else {
+          showToast(res.message || "Reveal failed.", "warn");
+          setAdminStatus(res.message || "Reveal failed.", "warn");
+        }
+      });
     }
-
-    if (!confirm("Force reveal now, lock submissions, and show picks?")) return;
-
-    const res = await apiAdmin("reveal", k);
-    if (res.ok) {
-      showToast("Revealed.", "ok");
-      setAdminStatus("Picks revealed.", "ok");
-      await refreshUI();
-    } else {
-      showToast(res.message || "Reveal failed.", "warn");
-      setAdminStatus(res.message || "Reveal failed.", "warn");
-    }
-  });
-}
 
     if (resetBtn) {
       resetBtn.addEventListener("click", async () => {
@@ -193,7 +202,6 @@ const App = {
           return;
         }
         if (!confirm("Reset picks, open submissions again?")) return;
-
         const res = await apiAdmin("reset", k);
         if (res.ok) {
           showToast("Reset complete.", "ok");
