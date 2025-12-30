@@ -74,7 +74,6 @@ body {
   flex-direction: column;
   gap: 24px;
   animation: fadeIn 0.8s var(--ease) forwards;
-  z-index: 10;
 }
 
 /* Header */
@@ -386,49 +385,6 @@ input[type="text"]::placeholder {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* NEW: Confetti Canvas */
-#confettiCanvas {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2000;
-  pointer-events: none;
-}
-
-/* NEW: Locked In Stamp */
-.stamp {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(3) rotate(-10deg);
-  opacity: 0;
-  
-  color: var(--accent-gold);
-  border: 6px solid var(--accent-gold);
-  padding: 16px 32px;
-  font-size: 3rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 4px;
-  
-  z-index: 3000;
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  border-radius: 8px;
-  text-shadow: 0 0 20px rgba(197, 160, 89, 0.5);
-  box-shadow: 0 0 30px rgba(197, 160, 89, 0.2), inset 0 0 10px rgba(197, 160, 89, 0.2);
-  
-  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.stamp.visible {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1) rotate(-10deg);
-}
-
 /* Mobile Adjustments */
 @media (max-width: 480px) {
   .card {
@@ -436,10 +392,5 @@ input[type="text"]::placeholder {
   }
   .title {
     font-size: 28px;
-  }
-  .stamp {
-    font-size: 2rem;
-    padding: 12px 24px;
-    border-width: 4px;
   }
 }
