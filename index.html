@@ -10,6 +10,9 @@
 
   <div class="ambient-glow"></div>
 
+  <canvas id="confettiCanvas"></canvas>
+  <div id="lockedInStamp" class="stamp hidden">LOCKED IN</div>
+
   <main class="container">
     
     <header class="header">
@@ -57,13 +60,13 @@
     </div>
 
     <div id="adminBlock" class="admin-panel hidden">
-  <div class="admin-controls">
-    <button id="adminKeyBtn" class="admin-btn">Auth</button>
-    <button id="revealBtn" class="admin-btn">Force Reveal</button>
-    <button id="resetBtn" class="admin-btn danger">Reset Week</button>
-  </div>
-  <div id="adminStatus" class="admin-status"></div>
-</div>
+      <div class="admin-controls">
+        <button id="adminKeyBtn" class="admin-btn">Auth</button>
+        <button id="revealBtn" class="admin-btn">Force Reveal</button>
+        <button id="resetBtn" class="admin-btn danger">Reset Week</button>
+      </div>
+      <div id="adminStatus" class="admin-status"></div>
+    </div>
 
   </main>
 
@@ -72,4 +75,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-
