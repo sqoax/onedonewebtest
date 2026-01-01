@@ -1,27 +1,8 @@
-// Add these to the start of your App object
-const loadSubmittedNames = async () => {
-  const r = await fetch(`${API_BASE}/submitted`);
-  const data = await r.json();
-  if (data.ok) {
-    const list = $("submittedList");
-    if (list) {
-      list.innerHTML = data.names.map(name => `<span class="member-pill">${name}</span>`).join("");
-    }
-  }
-};
+const API_BASE = "https://twilight-tree-42ce.hiattgafnea0.workers.dev";
 
-// ... inside your submit handler, after triggerConfetti()
-if (res.ok) {
-  showToast(res.message || "Pick submitted.", "ok");
-  triggerConfetti();
-  await loadSubmittedNames(); // Refresh the list instantly
-  if ($("pick")) $("pick").value = "";
-}
+function $(id) { return document.getElementById(id); }
 
-// ... inside App.init() at the very bottom
-await loadSubmittedNames(); // Initial load
-
-// 1. Confetti logic with your brand colors
+// --- 1. Helper Functions (Placed at top, accessible everywhere) ---
 const triggerConfetti = () => {
   const colors = ['#c5a059', '#1e3a28', '#f2f2f2']; // Gold, Augusta Green, White
   confetti({
@@ -32,10 +13,6 @@ const triggerConfetti = () => {
     zIndex: 999
   });
 };
-
-const API_BASE = "https://twilight-tree-42ce.hiattgafnea0.workers.dev";
-
-function $(id) { return document.getElementById(id); }
 
 function showToast(message, type = "ok") {
   const toast = $("toast");
@@ -48,9 +25,16 @@ function showToast(message, type = "ok") {
   showToast._t = setTimeout(() => { toast.hidden = true; }, 2500);
 }
 
+// --- 2. API Communication ---
 async function apiGetSettings() {
   const r = await fetch(`${API_BASE}/settings`);
   return await r.json();
+}
+
+async function apiGetSubmittedNames() {
+  const r = await fetch(`${API_BASE}/submitted`);
+  const data = await r.json().catch(() => ({ ok: false }));
+  return data;
 }
 
 async function apiSubmitPick({ name, pick }) {
@@ -93,14 +77,15 @@ function fmtTime(iso) {
   }
 }
 
+// --- 3. Main Application Logic ---
 const App = {
   async init() {
     const form = $("pickForm");
     const statusLine = $("statusLine");
     const submitBtn = $("submitBtn");
-
     const picksBlock = $("picksBlock");
     const picksRows = $("picksRows");
+    const submittedList = $("submittedList");
 
     const adminBlock = $("adminBlock");
     const adminKeyBtn = $("adminKeyBtn");
@@ -122,11 +107,21 @@ const App = {
       adminStatus.classList.add(type);
     };
 
+    const loadSubmittedNames = async () => {
+      const data = await apiGetSubmittedNames();
+      if (data.ok && submittedList) {
+        submittedList.innerHTML = data.names.map(name => 
+          `<span class="member-pill">${name}</span>`
+        ).join("");
+      }
+    };
+
     const getSavedAdminKey = () => localStorage.getItem("one_done_admin_key") || "";
     const saveAdminKey = (k) => localStorage.setItem("one_done_admin_key", k);
 
     const refreshUI = async () => {
       const s = await apiGetSettings();
+      await loadSubmittedNames(); // Keep the "Who's In" list updated
 
       if (s.revealed) {
         setStatus("Picks are revealed.", "ok");
@@ -171,11 +166,11 @@ const App = {
         if (submitBtn) submitBtn.disabled = true;
         const res = await apiSubmitPick({ name, pick });
 
-        // SUCCESS LOGIC: Trigger confetti here!
         if (res.ok) {
           showToast(res.message || "Pick submitted.", "ok");
-          triggerConfetti(); // This triggers the visual effect
+          triggerConfetti();
           if ($("pick")) $("pick").value = "";
+          await loadSubmittedNames(); // Instant update of the list
         } else {
           showToast(res.message || "Submit failed.", "warn");
         }
@@ -185,6 +180,7 @@ const App = {
       });
     }
 
+    // Admin controls
     if (adminBlock) adminBlock.classList.remove("hidden");
 
     if (adminKeyBtn) {
@@ -200,19 +196,12 @@ const App = {
     if (revealBtn) {
       revealBtn.addEventListener("click", async () => {
         const k = getSavedAdminKey();
-        if (!k) {
-          setAdminStatus("No admin key set.", "warn");
-          return;
-        }
+        if (!k) { setAdminStatus("No admin key set.", "warn"); return; }
         if (!confirm("Force reveal now, lock submissions, and show picks?")) return;
         const res = await apiAdmin("reveal", k);
         if (res.ok) {
           showToast("Revealed.", "ok");
-          setAdminStatus("Picks revealed.", "ok");
           await refreshUI();
-        } else {
-          showToast(res.message || "Reveal failed.", "warn");
-          setAdminStatus(res.message || "Reveal failed.", "warn");
         }
       });
     }
@@ -220,19 +209,12 @@ const App = {
     if (resetBtn) {
       resetBtn.addEventListener("click", async () => {
         const k = getSavedAdminKey();
-        if (!k) {
-          setAdminStatus("No admin key set.", "warn");
-          return;
-        }
+        if (!k) { setAdminStatus("No admin key set.", "warn"); return; }
         if (!confirm("Reset picks, open submissions again?")) return;
         const res = await apiAdmin("reset", k);
         if (res.ok) {
           showToast("Reset complete.", "ok");
-          setAdminStatus("Reset complete.", "ok");
           await refreshUI();
-        } else {
-          showToast(res.message || "Reset failed.", "warn");
-          setAdminStatus(res.message || "Reset failed.", "warn");
         }
       });
     }
