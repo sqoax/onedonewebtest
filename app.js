@@ -1,3 +1,26 @@
+// Add these to the start of your App object
+const loadSubmittedNames = async () => {
+  const r = await fetch(`${API_BASE}/submitted`);
+  const data = await r.json();
+  if (data.ok) {
+    const list = $("submittedList");
+    if (list) {
+      list.innerHTML = data.names.map(name => `<span class="member-pill">${name}</span>`).join("");
+    }
+  }
+};
+
+// ... inside your submit handler, after triggerConfetti()
+if (res.ok) {
+  showToast(res.message || "Pick submitted.", "ok");
+  triggerConfetti();
+  await loadSubmittedNames(); // Refresh the list instantly
+  if ($("pick")) $("pick").value = "";
+}
+
+// ... inside App.init() at the very bottom
+await loadSubmittedNames(); // Initial load
+
 // 1. Confetti logic with your brand colors
 const triggerConfetti = () => {
   const colors = ['#c5a059', '#1e3a28', '#f2f2f2']; // Gold, Augusta Green, White
