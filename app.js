@@ -209,16 +209,28 @@ const App = {
     if (resetBtn) {
       resetBtn.addEventListener("click", async () => {
         const k = getSavedAdminKey();
-        if (!k) { setAdminStatus("No admin key set.", "warn"); return; }
+        if (!k) { 
+          setAdminStatus("No admin key set.", "warn"); 
+          return; 
+        }
+
         if (!confirm("Reset picks, open submissions again?")) return;
+        
         const res = await apiAdmin("reset", k);
         if (res.ok) {
-          showToast("Reset complete.", "ok");
-          await refreshUI();
+          showToast("Reset complete. Form reopened.", "ok");
+          setAdminStatus("Reset complete.", "ok");
+          
+          // FORCE UI REFRESH: This tells the app to re-read settings from Cloudflare
+          // and switch back from "Revealed Table" to "Submit Form"
+          await refreshUI(); 
+        } else {
+          showToast(res.message || "Reset failed.", "warn");
+          setAdminStatus(res.message || "Reset failed.", "warn");
         }
       });
     }
-
+    
     await refreshUI();
   },
 };
