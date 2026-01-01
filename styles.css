@@ -416,3 +416,34 @@ input[type="text"]::placeholder {
   border-bottom: 1px solid var(--accent-gold-dim);
   text-shadow: 0 0 10px rgba(197, 160, 89, 0.3);
 }
+
+.submitted-container {
+  margin-top: 8px;
+  padding: 0 10px;
+}
+
+.submitted-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.member-pills-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.member-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  padding: 4px 10px;
+  border-radius: 50px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  animation: fadeIn 0.5s ease forwards;
+}
