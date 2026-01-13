@@ -45,31 +45,44 @@ const App = {
     const revealBtn = $("revealBtn");
 
     const refreshUI = async () => {
-      const s = await (await fetch(`${API_BASE}/settings`)).json();
-      const namesRes = await (await fetch(`${API_BASE}/submitted`)).json();
-      
-      if (namesRes.ok) {
-        submittedList.innerHTML = namesRes.names.map(n => `<span class="member-pill">${n}</span>`).join("");
-      }
+      try {
+        // ✅ FIXED: Parallel API calls for faster loading
+        const [settingsRes, namesRes] = await Promise.all([
+          fetch(`${API_BASE}/settings`),
+          fetch(`${API_BASE}/submitted`)
+        ]);
 
-      if (s.revealed) {
-        statusLine.textContent = "Picks are revealed.";
-        statusLine.className = "status-pill ok";
-        form.classList.add("hidden");
-        picksBlock.classList.remove("hidden");
+        const s = await settingsRes.json();
+        const namesData = await namesRes.json();
         
-        const res = await (await fetch(`${API_BASE}/picks`)).json();
-        if (res.ok) {
-          picksRows.innerHTML = res.picks.map(p => 
-            `<tr><td>${p.name}</td><td>${p.pick}</td><td>${new Date(p.ts).toLocaleString()}</td></tr>`
-          ).join("");
+        if (namesData.ok) {
+          submittedList.innerHTML = namesData.names.map(n => `<span class="member-pill">${n}</span>`).join("");
         }
-      } else {
-        statusLine.textContent = "Picks are open, reveal Wed at 9:00 PM ET.";
-        statusLine.className = "status-pill warn";
-        form.classList.remove("hidden");
-        picksBlock.classList.add("hidden");
-        submitBtn.disabled = !!s.locked;
+
+        if (s.revealed) {
+          statusLine.textContent = "Picks are revealed.";
+          statusLine.className = "status-pill ok";
+          form.classList.add("hidden");
+          picksBlock.classList.remove("hidden");
+          
+          const picksRes = await fetch(`${API_BASE}/picks`);
+          const picksData = await picksRes.json();
+          
+          if (picksData.ok) {
+            picksRows.innerHTML = picksData.picks.map(p => 
+              `<tr><td>${p.name}</td><td>${p.pick}</td><td>${new Date(p.ts).toLocaleString()}</td></tr>`
+            ).join("");
+          }
+        } else {
+          statusLine.textContent = "Picks are open, reveal Wed at 9:00 PM ET.";
+          statusLine.className = "status-pill warn";
+          form.classList.remove("hidden");
+          picksBlock.classList.add("hidden");
+          submitBtn.disabled = !!s.locked;
+        }
+      } catch (error) {
+        console.error("Error refreshing UI:", error);
+        showToast("Failed to load data. Check your connection.", "warn");
       }
     };
 
@@ -85,21 +98,40 @@ const App = {
       }
 
       submitBtn.disabled = true;
-      const res = await fetch(`${API_BASE}/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, pick }),
-      }).then(r => r.json());
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = "Submitting...";
 
-      if (res.ok) {
-        showToast("Pick submitted!", "ok");
-        triggerConfetti();
-        $("pick").value = "";
-        await refreshUI();
-      } else {
-        showToast(res.message, "warn");
+      try {
+        // ✅ FIXED: Proper error handling for network failures
+        const response = await fetch(`${API_BASE}/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, pick }),
+        });
+
+        if (!response.ok) {
+          const res = await response.json();
+          showToast(res.message || "Submission failed", "warn");
+          return;
+        }
+
+        const res = await response.json();
+        
+        if (res.ok) {
+          showToast("Pick submitted!", "ok");
+          triggerConfetti();
+          $("pick").value = "";
+          await refreshUI();
+        } else {
+          showToast(res.message, "warn");
+        }
+      } catch (error) {
+        console.error("Submission error:", error);
+        showToast("Connection failed. Check your internet and try again.", "warn");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
       }
-      submitBtn.disabled = false;
     };
 
     // --- Admin Controls ---
@@ -117,17 +149,24 @@ const App = {
       const k = getSavedAdminKey();
       if (!k) return showToast("No key saved.", "warn");
       
-      const res = await fetch(`${API_BASE}/admin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": k },
-        body: JSON.stringify({ action: "reveal" }),
-      }).then(r => r.json());
+      try {
+        const response = await fetch(`${API_BASE}/admin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Admin-Key": k },
+          body: JSON.stringify({ action: "reveal" }),
+        });
 
-      if (res.ok) {
-        showToast("Revealed!", "ok");
-        await refreshUI();
-      } else {
-        showToast(res.message, "warn");
+        const res = await response.json();
+
+        if (res.ok) {
+          showToast("Revealed!", "ok");
+          await refreshUI();
+        } else {
+          showToast(res.message, "warn");
+        }
+      } catch (error) {
+        console.error("Reveal error:", error);
+        showToast("Connection failed.", "warn");
       }
     };
 
@@ -136,17 +175,24 @@ const App = {
       if (!k) return showToast("No key saved.", "warn");
       if (!confirm("Reset everything for next week?")) return;
 
-      const res = await fetch(`${API_BASE}/admin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": k },
-        body: JSON.stringify({ action: "reset" }),
-      }).then(r => r.json());
+      try {
+        const response = await fetch(`${API_BASE}/admin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Admin-Key": k },
+          body: JSON.stringify({ action: "reset" }),
+        });
 
-      if (res.ok) {
-        showToast("Reset complete.", "ok");
-        await refreshUI();
-      } else {
-        showToast(res.message, "warn");
+        const res = await response.json();
+
+        if (res.ok) {
+          showToast("Reset complete.", "ok");
+          await refreshUI();
+        } else {
+          showToast(res.message, "warn");
+        }
+      } catch (error) {
+        console.error("Reset error:", error);
+        showToast("Connection failed.", "warn");
       }
     };
 
