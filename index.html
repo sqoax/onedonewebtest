@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -643,6 +644,71 @@ body {
 .text-red { color: var(--red); }
 .mt-16 { margin-top: 16px; }
 .mb-8 { margin-bottom: 8px; }
+
+/* ── Forecast Tab ── */
+.forecast-results { margin-top: 16px; }
+.forecast-row {
+  display: flex; align-items: center;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  gap: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.forecast-rank {
+  font-size: 16px; font-weight: 800;
+  color: var(--cream-muted);
+  width: 28px; text-align: center;
+  flex-shrink: 0;
+}
+.forecast-row:first-child .forecast-rank { color: var(--gold); }
+.forecast-info { flex: 1; min-width: 0; }
+.forecast-name { font-size: 15px; font-weight: 700; color: var(--cream); }
+.forecast-pct {
+  font-size: 16px; font-weight: 700;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  flex-shrink: 0;
+  min-width: 52px;
+}
+.forecast-bar-container {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 3px; background: rgba(255,255,255,0.04);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  overflow: hidden;
+}
+.forecast-bar {
+  height: 100%;
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.6s ease-out;
+}
+.forecast-bar.leader {
+  background: linear-gradient(90deg, var(--gold), #b8942f);
+}
+.forecast-bar.other {
+  background: linear-gradient(90deg, var(--accent), #2d5a2d);
+}
+.forecast-caption {
+  text-align: center; margin-top: 14px;
+  font-size: 12px; color: var(--cream-muted);
+}
+.forecast-rerun {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  color: var(--cream-muted);
+  font-size: 12px; font-weight: 600;
+  padding: 5px 14px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: border-color 0.2s, color 0.2s;
+}
+.forecast-rerun:hover { border-color: var(--gold); color: var(--cream); }
 </style>
 </head>
 <body>
@@ -735,6 +801,19 @@ body {
     <div id="players-content"></div>
   </div>
 
+  <!-- ─── TAB: FORECAST ─── -->
+  <div class="tab-panel" id="tab-forecast">
+    <div class="app-header fade-up">
+      <div class="badge">🔮</div>
+      <h1>Forecast</h1>
+      <div class="subtitle">2025 Season Simulation</div>
+    </div>
+    <div class="fade-up stagger-1" style="margin-top:8px;">
+      <button class="btn-submit" id="btn-run-sim" onclick="runMonteCarlo()">Run Simulation</button>
+    </div>
+    <div id="forecast-results"></div>
+  </div>
+
 </div>
 
 <!-- Bottom Nav -->
@@ -754,6 +833,10 @@ body {
   <button class="nav-tab" data-tab="players" onclick="switchTab('players')">
     <span class="nav-icon">⛳</span>
     <span class="nav-label">Players</span>
+  </button>
+  <button class="nav-tab" data-tab="forecast" onclick="switchTab('forecast')">
+    <span class="nav-icon">🔮</span>
+    <span class="nav-label">Forecast</span>
   </button>
 </nav>
 
@@ -926,6 +1009,7 @@ function switchTab(tabId) {
   if (tabId === 'standings') renderStandings();
   else if (tabId === 'history') renderHistory();
   else if (tabId === 'players') renderPlayers();
+  else if (tabId === 'forecast') renderForecastIfNeeded();
 }
 
 // ── Picks Tab ──
@@ -1298,6 +1382,253 @@ function renderPlayers() {
 
 function toggleMember(card) {
   card.classList.toggle('expanded');
+}
+
+// ── Forecast Tab ──
+let forecastLastRun = null;
+let forecastTimerInterval = null;
+
+function renderForecastIfNeeded() {
+  // Just re-trigger animations, don't auto-run
+}
+
+function runMonteCarlo() {
+  if (!sheetData.tournaments || sheetData.tournaments.length === 0) {
+    showToast('Sheet data not loaded yet', 'info');
+    return;
+  }
+
+  const btn = document.getElementById('btn-run-sim');
+  btn.disabled = true;
+  btn.textContent = 'Simulating…';
+
+  // Use setTimeout to let the UI update before the heavy computation
+  setTimeout(() => {
+    // Fitted from 60 actual observations (10 members x 6 weeks)
+    const LEAGUE_LOG_MU = -4.687;       // log-mean of made-cut payout %
+    const LEAGUE_LOG_SIGMA = 1.015;     // shared week-to-week variance
+    const LEAGUE_MISS_CUT_RATE = 0.167; // 16.7% miss cut rate
+    const PRIOR_WEIGHT = 12;            // equiv to 12 weeks of prior belief — heavy shrinkage
+    const DEGRADATION_RATE = 0.00000008;  // one-and-done depletion per $ of outperformance
+
+    const HISTORICAL_PURSES = [
+      9_100_000, 9_200_000, 9_600_000,
+      9_600_000, 20_000_000, 20_000_000
+    ];
+
+    const TOURNAMENT_PURSES = [
+      9_600_000,  // 1  Cognizant
+      20_000_000, // 2  API
+      25_000_000, // 3  Players
+      9_100_000,  // 4  Valspar
+      9_900_000,  // 5  Houston
+      9_800_000,  // 6  Valero
+      21_000_000, // 7  Masters
+      20_000_000, // 8  Heritage
+      20_000_000, // 9  Cadillac
+      20_000_000, // 10 Truist
+      19_000_000, // 11 PGA
+      10_300_000, // 12 Byron Nelson
+      9_900_000,  // 13 Schwab
+      20_000_000, // 14 Memorial
+      9_800_000,  // 15 Canadian
+      21_500_000, // 16 US Open
+      20_000_000, // 17 Travelers
+      8_800_000,  // 18 John Deere
+      9_000_000,  // 19 Scottish
+      17_000_000, // 20 The Open
+      8_800_000,  // 21 3M
+      10_000_000, // 22 Rocket
+      8_500_000,  // 23 Wyndham
+    ];
+
+    // Step 1 — Box-Muller normal sampler
+    function sampleNormal() {
+      let u, v;
+      do { u = Math.random(); v = Math.random(); } while (u === 0);
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+    function sampleLogNormal(mu, sigma) {
+      return Math.exp(mu + sigma * sampleNormal());
+    }
+
+    const weeksRemaining = 23 - (cfStatus.currentWeek - 1);
+    const NUM_SIMS = 10000;
+
+    // Step 2 — Compute per-member observed stats
+    const validTournaments = sheetData.tournaments.filter(t =>
+      t.picks.some(p => p.earnings > 0)
+    );
+    const n = validTournaments.length;
+
+    const memberStats = {};
+    MEMBERS.forEach(m => {
+      if (n === 0) {
+        memberStats[m] = {
+          observedLogMu: LEAGUE_LOG_MU,
+          observedMissCutRate: LEAGUE_MISS_CUT_RATE,
+          totalEarnings: 0,
+          n: 0
+        };
+        return;
+      }
+
+      let missCutCount = 0;
+      const madeWeeks = [];
+      let totalEarnings = 0;
+
+      validTournaments.forEach((t, tIdx) => {
+        const pick = t.picks.find(p => p.member === m);
+        const earnings = pick ? (pick.earnings || 0) : 0;
+        totalEarnings += earnings;
+        if (earnings === 0) {
+          missCutCount++;
+        } else {
+          const histPurse = tIdx < HISTORICAL_PURSES.length
+            ? HISTORICAL_PURSES[tIdx]
+            : HISTORICAL_PURSES[HISTORICAL_PURSES.length - 1];
+          madeWeeks.push(earnings / histPurse);
+        }
+      });
+
+      const observedLogMu = madeWeeks.length > 0
+        ? madeWeeks.reduce((sum, v) => sum + Math.log(v), 0) / madeWeeks.length
+        : LEAGUE_LOG_MU;
+
+      memberStats[m] = {
+        observedLogMu,
+        observedMissCutRate: missCutCount / n,
+        totalEarnings,
+        n
+      };
+    });
+
+    // Step 3 — Bayesian shrinkage + one-and-done degradation
+    const leagueAvgTotal = 6 * (1 - LEAGUE_MISS_CUT_RATE) *
+      Math.exp(LEAGUE_LOG_MU + 0.5 * LEAGUE_LOG_SIGMA ** 2) * 10_000_000;
+
+    const memberProfiles = {};
+    MEMBERS.forEach(m => {
+      const s = memberStats[m];
+      const memberN = s.n;
+      const shrinkage = PRIOR_WEIGHT / (PRIOR_WEIGHT + memberN);
+
+      const shrunkLogMu = shrinkage * LEAGUE_LOG_MU + (1 - shrinkage) * s.observedLogMu;
+      const shrunkMissCutRate = shrinkage * LEAGUE_MISS_CUT_RATE + (1 - shrinkage) * s.observedMissCutRate;
+
+      const outperformance = Math.max(0, s.totalEarnings - leagueAvgTotal);
+      const finalLogMu = Math.max(shrunkLogMu - (outperformance * DEGRADATION_RATE), LEAGUE_LOG_MU - 1.5 * LEAGUE_LOG_SIGMA);
+
+      const skillUncertainty = LEAGUE_LOG_SIGMA / Math.sqrt(memberN + PRIOR_WEIGHT);
+
+      memberProfiles[m] = { finalLogMu, shrunkMissCutRate, skillUncertainty };
+    });
+
+    // Step 4 — Run 10,000 simulations (all members start at $0)
+    const wins = {};
+    MEMBERS.forEach(m => { wins[m] = 0; });
+
+    for (let sim = 0; sim < NUM_SIMS; sim++) {
+      const simTotals = {};
+      const simLogMu = {};
+
+      // Draw sim-level true skill for each member
+      MEMBERS.forEach(m => {
+        simTotals[m] = sheetData.standings.totals?.[m] || 0;
+        simLogMu[m] = memberProfiles[m].finalLogMu + sampleNormal() * memberProfiles[m].skillUncertainty;
+      });
+
+      // Simulate each remaining week
+      for (let w = 0; w < weeksRemaining; w++) {
+        const weekIndex = (cfStatus.currentWeek - 1) + w;
+        const futurePurse = weekIndex < TOURNAMENT_PURSES.length ? TOURNAMENT_PURSES[weekIndex] : 9_500_000;
+
+        MEMBERS.forEach(m => {
+          if (Math.random() < memberProfiles[m].shrunkMissCutRate) return; // miss cut — $0
+          let payoutPct = sampleLogNormal(simLogMu[m], LEAGUE_LOG_SIGMA);
+          payoutPct = Math.min(payoutPct, 0.18); // cap at 1st place = 18%
+          simTotals[m] += payoutPct * futurePurse;
+        });
+      }
+
+      // Find winner of this sim
+      let bestMember = MEMBERS[0];
+      let bestTotal = simTotals[MEMBERS[0]];
+      for (let i = 1; i < MEMBERS.length; i++) {
+        if (simTotals[MEMBERS[i]] > bestTotal) {
+          bestTotal = simTotals[MEMBERS[i]];
+          bestMember = MEMBERS[i];
+        }
+      }
+      wins[bestMember]++;
+    }
+
+    // Step 5 — Build results
+    const results = MEMBERS.map(m => ({
+      name: m,
+      winPct: (wins[m] / NUM_SIMS) * 100
+    })).sort((a, b) => b.winPct - a.winPct);
+
+    // Render
+    const container = document.getElementById('forecast-results');
+    let html = '<div class="forecast-results">';
+
+    results.forEach((r, i) => {
+      const barClass = i === 0 ? 'leader' : 'other';
+      html += `<div class="forecast-row fade-up stagger-${Math.min(i + 1, 10)}">
+        <div class="forecast-rank">${i + 1}</div>
+        <div class="forecast-info">
+          <div class="forecast-name">${r.name}</div>
+        </div>
+        <div class="forecast-pct">${r.winPct.toFixed(1)}%</div>
+        <div class="forecast-bar-container">
+          <div class="forecast-bar ${barClass}" data-width="${r.winPct}"></div>
+        </div>
+      </div>`;
+    });
+
+    html += `<div class="forecast-caption fade-up stagger-10">
+      ${weeksRemaining} week${weeksRemaining !== 1 ? 's' : ''} remaining · ${NUM_SIMS.toLocaleString()} simulations · Bayesian model
+    </div>`;
+    html += `<div class="forecast-caption fade-up stagger-10" style="margin-top:2px;">
+      Log-normal + Bayesian shrinkage · one-and-done depletion · current standings as starting point
+    </div>`;
+    html += `<div style="text-align:center;" class="fade-up stagger-10">
+      <span class="forecast-caption" id="forecast-timer"></span><br>
+      <button class="forecast-rerun" onclick="runMonteCarlo()">↻ Re-run</button>
+    </div>`;
+
+    html += '</div>';
+    container.innerHTML = html;
+
+    // Animate bars after render
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        container.querySelectorAll('.forecast-bar').forEach(bar => {
+          bar.style.width = bar.dataset.width + '%';
+        });
+      });
+    });
+
+    // Track run time
+    forecastLastRun = Date.now();
+    btn.disabled = false;
+    btn.textContent = 'Run Simulation';
+    updateForecastTimer();
+    if (forecastTimerInterval) clearInterval(forecastTimerInterval);
+    forecastTimerInterval = setInterval(updateForecastTimer, 1000);
+  }, 20);
+}
+
+function updateForecastTimer() {
+  const el = document.getElementById('forecast-timer');
+  if (!el || !forecastLastRun) return;
+  const secs = Math.floor((Date.now() - forecastLastRun) / 1000);
+  if (secs < 60) el.textContent = `Last run: ${secs} second${secs !== 1 ? 's' : ''} ago`;
+  else {
+    const mins = Math.floor(secs / 60);
+    el.textContent = `Last run: ${mins} minute${mins !== 1 ? 's' : ''} ago`;
+  }
 }
 
 // ── Init ──
