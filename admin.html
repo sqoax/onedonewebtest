@@ -1,35 +1,90 @@
+
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Admin</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>O&amp;D Admin</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="app.js"></script>
 </head>
-<body>
-  <main class="card">
-    <h1>Admin</h1>
-    <p class="muted">Test-only controls, stored locally on this device.</p>
+<body data-page="admin">
+  <div class="app-shell">
+    <header class="top-bar" aria-label="Admin header">
+      <a class="brand-lockup" href="index.html">
+        <span class="brand-mark">O&amp;D</span>
+        <span>
+          <span class="brand-title">Admin</span>
+          <span class="brand-subtitle" id="adminContext">League controls</span>
+        </span>
+      </a>
+      <a class="icon-link" href="index.html">App</a>
+    </header>
 
-    <div class="stack">
-      <button id="toggleLock"></button>
-      <button id="toggleReveal"></button>
-      <button class="danger" id="reset">Reset all picks</button>
-    </div>
+    <main class="app-main no-nav">
+      <section class="section-heading">
+        <p class="eyebrow">Protected</p>
+        <h1>Admin Console</h1>
+      </section>
 
-    <div class="hr"></div>
+      <div class="card stack-lg">
+        <div class="field-block">
+          <label for="adminKeyInput">Admin key</label>
+          <input id="adminKeyInput" type="password" autocomplete="current-password" placeholder="Enter admin key">
+        </div>
+        <button class="btn btn-primary" type="button" id="saveAdminKeyBtn">Authenticate</button>
+        <p class="help-text" id="adminAuthState">Admin key is stored locally on this device.</p>
+      </div>
 
-    <div class="row">
-      <a class="link" href="index.html">Pick</a>
-      <a class="link" href="reveal.html">Reveal</a>
-    </div>
+      <div class="card stack-lg">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Current Week</p>
+            <h2 id="adminWeekTitle">Loading</h2>
+          </div>
+          <span class="status-pill neutral" id="adminStatusPill">Loading</span>
+        </div>
+        <div class="metric-grid two">
+          <div class="metric-tile">
+            <span class="metric-label">Submitted</span>
+            <strong id="adminSubmittedCount">-</strong>
+          </div>
+          <div class="metric-tile">
+            <span class="metric-label">Reveal</span>
+            <strong id="adminRevealState">-</strong>
+          </div>
+        </div>
+      </div>
 
-    <p id="status" class="status"></p>
-  </main>
+      <div class="card stack-lg">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Actions</p>
+            <h2>League Controls</h2>
+          </div>
+        </div>
+        <div class="action-list">
+          <button class="btn btn-secondary" type="button" id="adminRefreshBtn">Refresh Status</button>
+          <button class="btn btn-secondary" type="button" id="adminRevealBtn">Force Reveal</button>
+          <button class="btn btn-danger" type="button" id="adminAdvanceBtn">Advance Week</button>
+        </div>
+      </div>
 
-  <script src="app.js"></script>
-  <script>
-    AdminPage.init();
-  </script>
+      <div class="card stack-lg">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">API</p>
+            <h2>Status Snapshot</h2>
+          </div>
+        </div>
+        <pre class="api-snapshot" id="adminApiSnapshot">Loading...</pre>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
 </body>
 </html>
