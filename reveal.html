@@ -1,40 +1,43 @@
+
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Reveal</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>O&amp;D Reveal</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="app.js"></script>
 </head>
-<body>
-  <main class="card">
-    <h1>Reveal</h1>
-    <p id="revealState" class="muted"></p>
+<body data-page="reveal">
+  <div class="app-shell">
+    <header class="top-bar" aria-label="Reveal header">
+      <a class="brand-lockup" href="index.html">
+        <span class="brand-mark">O&amp;D</span>
+        <span>
+          <span class="brand-title">Reveal</span>
+          <span class="brand-subtitle" id="revealContext">Current week</span>
+        </span>
+      </a>
+      <a class="icon-link" href="index.html">App</a>
+    </header>
 
-    <div id="lockedBox" class="locked" hidden>
-      <p><strong>Locked.</strong> Picks are not revealed yet.</p>
-    </div>
+    <main class="app-main no-nav">
+      <section class="section-heading">
+        <p class="eyebrow">Weekly Reveal</p>
+        <h1>Submitted Picks</h1>
+      </section>
+      <div id="revealContent">
+        <div class="loading-state inline">
+          <div class="loading-pulse"></div>
+          <p>Loading reveal</p>
+        </div>
+      </div>
+    </main>
+  </div>
 
-    <div id="tableWrap" hidden>
-      <table>
-        <thead>
-          <tr><th>Name</th><th>Pick</th><th>Time</th></tr>
-        </thead>
-        <tbody id="rows"></tbody>
-      </table>
-    </div>
-
-    <div class="hr"></div>
-
-    <div class="row">
-      <a class="link" href="index.html">Back to pick</a>
-      <a class="link" href="admin.html">Admin</a>
-    </div>
-  </main>
-
-  <script src="app.js"></script>
-  <script>
-    RevealPage.init();
-  </script>
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
 </body>
 </html>
