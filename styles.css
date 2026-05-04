@@ -852,6 +852,48 @@ a:focus-visible {
   display: none !important;
 }
 
+.golfer-search {
+  position: relative;
+}
+
+.golfer-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 2px;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  padding: 6px;
+}
+
+.golfer-option {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  padding: 11px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.golfer-option:hover,
+.golfer-option:focus-visible {
+  background: var(--green-soft);
+  color: var(--green);
+  outline: none;
+}
+
 .action-list {
   display: grid;
   gap: 10px;
