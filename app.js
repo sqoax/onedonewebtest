@@ -1,5 +1,6 @@
 const CF_BASE = "https://golf-pickem-weekly.hiattgafnea0.workers.dev";
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQs22oFFItCqxK4oSjw68DRmVXovuv6PgKm7koaGsjj1eLoDWPoYMGIRB7CdV7P3z6Na9Tdara8D-SD/pub?output=csv";
+const GOLFERS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR6oHRo1CCY8mpPFEVnqI2YGnwOb65q7SqIC8iUi-tQ4FKhxVSuuSmCa91T-_NJOXDze0JOeoLyuG9f/pub?output=csv";
 const MEMBERS = ["Hiatt", "Caden", "Bennett", "Ryan", "William", "Ian", "Mason", "Tim", "Drew", "Ben"];
 
 const state = {
@@ -12,7 +13,8 @@ const state = {
   lastFetchTime: null,
   forecastLastRun: null,
   forecastTimer: null,
-  adminKey: localStorage.getItem("golf_admin_key") || ""
+  adminKey: localStorage.getItem("golf_admin_key") || "",
+  golfers: []
 };
 
 const $ = (id) => document.getElementById(id);
@@ -188,6 +190,19 @@ async function fetchSheetData() {
   state.lastFetchTime = Date.now();
 }
 
+async function fetchGolfers() {
+  try {
+    const response = await fetch(GOLFERS_URL);
+    const text = await response.text();
+    const rows = parseCSV(text);
+    state.golfers = rows
+      .map((row) => (row[0] || "").trim())
+      .filter((name) => name.length > 0);
+  } catch (error) {
+    state.golfers = [];
+  }
+}
+
 async function fetchCFStatus() {
   state.cfStatus = await apiJSON("/status");
 }
@@ -205,7 +220,7 @@ async function fetchWeekPicks(week = state.cfStatus.currentWeek) {
 }
 
 async function loadLeagueData(options = {}) {
-  await Promise.all([fetchSheetData(), fetchCFStatus(), fetchCFWeeks()]);
+  await Promise.all([fetchSheetData(), fetchCFStatus(), fetchCFWeeks(), fetchGolfers()]);
   await fetchWeekPicks(options.week || state.cfStatus.currentWeek);
 }
 
@@ -369,7 +384,10 @@ function renderPick() {
         </div>
         <div class="field-block">
           <label for="pickGolfer">Golfer pick</label>
-          <input id="pickGolfer" type="text" autocomplete="off" autocapitalize="words" placeholder="Enter golfer name" required>
+          <div class="golfer-search">
+            <input id="pickGolfer" type="text" autocomplete="off" autocapitalize="words" placeholder="Search golfer name" required>
+            <div class="golfer-dropdown hidden" id="pickGolferDropdown" role="listbox"></div>
+          </div>
         </div>
         <div class="review-card hidden" id="pickReview">
           <h3>Review pick</h3>
@@ -427,6 +445,7 @@ function bindPickForm() {
   if (!form) return;
   const nameInput = $("pickName");
   const golferInput = $("pickGolfer");
+  const dropdown = $("pickGolferDropdown");
   const review = $("pickReview");
   const reviewText = $("pickReviewText");
 
@@ -443,8 +462,61 @@ function bindPickForm() {
       : "Finish both fields before submitting.";
   };
 
+  const renderDropdown = (matches) => {
+    if (!matches.length) {
+      dropdown.classList.add("hidden");
+      dropdown.innerHTML = "";
+      return;
+    }
+    dropdown.innerHTML = matches.map((name) => `
+      <button type="button" class="golfer-option" data-golfer="${escapeHTML(name)}">${escapeHTML(name)}</button>
+    `).join("");
+    dropdown.classList.remove("hidden");
+  };
+
+  const filterGolfers = (query) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const list = state.golfers || [];
+    const starts = [];
+    const contains = [];
+    for (const name of list) {
+      const lower = name.toLowerCase();
+      if (lower.startsWith(q)) starts.push(name);
+      else if (lower.includes(q)) contains.push(name);
+      if (starts.length + contains.length >= 50) break;
+    }
+    return [...starts, ...contains].slice(0, 8);
+  };
+
+  golferInput.addEventListener("input", () => {
+    renderDropdown(filterGolfers(golferInput.value));
+    updateReview();
+  });
+
+  golferInput.addEventListener("focus", () => {
+    if (golferInput.value.trim()) {
+      renderDropdown(filterGolfers(golferInput.value));
+    }
+  });
+
+  dropdown.addEventListener("mousedown", (event) => {
+    const button = event.target.closest(".golfer-option");
+    if (!button) return;
+    event.preventDefault();
+    golferInput.value = button.dataset.golfer;
+    dropdown.classList.add("hidden");
+    dropdown.innerHTML = "";
+    updateReview();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".golfer-search")) {
+      dropdown.classList.add("hidden");
+    }
+  });
+
   nameInput.addEventListener("change", updateReview);
-  golferInput.addEventListener("input", updateReview);
   form.addEventListener("submit", submitPick);
 }
 
