@@ -778,13 +778,57 @@ a:focus-visible {
   box-shadow: 0 2px 8px rgba(23, 32, 51, 0.08);
 }
 
+.stat-card + .stat-card {
+  margin-top: 12px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--card);
+  padding: 10px 12px;
+}
+
+.stat-row .row-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 17px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+
+.callout-tile {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--gold-soft);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(255, 215, 138, 0.18), rgba(255, 215, 138, 0.05));
+}
+
+.callout-tile strong {
+  font-size: 18px;
+  color: var(--text);
+}
+
 .bottom-nav {
   position: fixed;
   bottom: 0;
   left: 50%;
   z-index: 35;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   width: 100%;
   max-width: 480px;
   min-height: calc(var(--nav-height) + env(safe-area-inset-bottom));
