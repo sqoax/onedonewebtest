@@ -469,7 +469,6 @@ a:focus-visible {
 .rank-row,
 .history-row,
 .player-row,
-.forecast-row,
 .pick-row {
   display: flex;
   align-items: center;
@@ -505,8 +504,7 @@ a:focus-visible {
   flex: 1;
 }
 
-.rank-row .row-main,
-.forecast-row .row-main {
+.rank-row .row-main {
   display: grid;
   gap: 4px;
 }
