@@ -421,9 +421,10 @@ function renderPick() {
         <div class="field-block">
           <label for="pickGolfer">Golfer pick</label>
           <div class="golfer-search">
-            <input id="pickGolfer" type="text" autocomplete="off" autocapitalize="words" placeholder="Search golfer name" required>
+            <input id="pickGolfer" type="text" autocomplete="off" autocapitalize="words" placeholder="Search golfer name" aria-controls="pickGolferDropdown" aria-expanded="false" required>
             <div class="golfer-dropdown hidden" id="pickGolferDropdown" role="listbox"></div>
           </div>
+          <button class="text-action hidden" type="button" id="pickAnotherGolferBtn">Pick another golfer</button>
         </div>
         <div class="review-card hidden" id="pickReview">
           <h3>Review pick</h3>
@@ -482,32 +483,56 @@ function bindPickForm() {
   const nameInput = $("pickName");
   const golferInput = $("pickGolfer");
   const dropdown = $("pickGolferDropdown");
+  const resetButton = $("pickAnotherGolferBtn");
   const review = $("pickReview");
   const reviewText = $("pickReviewText");
+  const submitButton = $("submitPickBtn");
+
+  form.dataset.selectedGolfer = "";
+  submitButton.disabled = true;
+
+  const hideDropdown = () => {
+    dropdown.classList.add("hidden");
+    dropdown.innerHTML = "";
+    golferInput.setAttribute("aria-expanded", "false");
+  };
 
   const updateReview = () => {
     const name = nameInput.value;
-    const golfer = golferInput.value.trim();
-    if (!name && !golfer) {
+    const golfer = form.dataset.selectedGolfer || "";
+    submitButton.disabled = !(name && golfer);
+    if (!golfer) {
       review.classList.add("hidden");
       return;
     }
     review.classList.remove("hidden");
     reviewText.textContent = name && golfer
       ? `${name} is submitting ${golfer}.`
-      : "Finish both fields before submitting.";
+      : "Choose your name before submitting.";
   };
 
   const renderDropdown = (matches) => {
+    const query = golferInput.value.trim();
+    if (!query) {
+      hideDropdown();
+      return;
+    }
     if (!matches.length) {
-      dropdown.classList.add("hidden");
-      dropdown.innerHTML = "";
+      dropdown.innerHTML = `
+        <button type="button" class="golfer-option golfer-option-muted" role="option" data-custom-golfer="${escapeHTML(query)}">
+          <span>Pick another golfer</span>
+          <strong>${escapeHTML(query)}</strong>
+        </button>
+      `;
+      dropdown.classList.remove("hidden");
+      golferInput.setAttribute("aria-expanded", "true");
       return;
     }
     dropdown.innerHTML = matches.map((name) => `
-      <button type="button" class="golfer-option" data-golfer="${escapeHTML(name)}">${escapeHTML(name)}</button>
+      <button type="button" class="golfer-option" role="option" data-golfer="${escapeHTML(name)}">${escapeHTML(name)}</button>
     `).join("");
     dropdown.classList.remove("hidden");
+    golferInput.setAttribute("aria-expanded", "true");
   };
 
   const filterGolfers = (query) => {
@@ -525,13 +550,37 @@ function bindPickForm() {
     return [...starts, ...contains].slice(0, 8);
   };
 
+  const clearSelectedGolfer = () => {
+    form.dataset.selectedGolfer = "";
+    form.dataset.customGolfer = "";
+    golferInput.readOnly = false;
+    golferInput.value = "";
+    resetButton.classList.add("hidden");
+    hideDropdown();
+    updateReview();
+    golferInput.focus();
+  };
+
+  const selectGolfer = (golfer, isCustom = false) => {
+    form.dataset.selectedGolfer = golfer;
+    form.dataset.customGolfer = isCustom ? "true" : "";
+    golferInput.value = golfer;
+    golferInput.readOnly = true;
+    resetButton.classList.remove("hidden");
+    hideDropdown();
+    updateReview();
+  };
+
   golferInput.addEventListener("input", () => {
+    form.dataset.selectedGolfer = "";
+    form.dataset.customGolfer = "";
+    resetButton.classList.add("hidden");
     renderDropdown(filterGolfers(golferInput.value));
     updateReview();
   });
 
   golferInput.addEventListener("focus", () => {
-    if (golferInput.value.trim()) {
+    if (!golferInput.readOnly && golferInput.value.trim()) {
       renderDropdown(filterGolfers(golferInput.value));
     }
   });
@@ -540,15 +589,18 @@ function bindPickForm() {
     const button = event.target.closest(".golfer-option");
     if (!button) return;
     event.preventDefault();
-    golferInput.value = button.dataset.golfer;
-    dropdown.classList.add("hidden");
-    dropdown.innerHTML = "";
-    updateReview();
+    if (button.dataset.customGolfer) {
+      selectGolfer(button.dataset.customGolfer, true);
+      return;
+    }
+    selectGolfer(button.dataset.golfer);
   });
+
+  resetButton.addEventListener("click", clearSelectedGolfer);
 
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".golfer-search")) {
-      dropdown.classList.add("hidden");
+      hideDropdown();
     }
   });
 
@@ -558,14 +610,133 @@ function bindPickForm() {
 
 async function submitPick(event) {
   event.preventDefault();
+  const form = $("pickForm");
   const name = $("pickName").value;
-  const golferPick = $("pickGolfer").value.trim();
-  const button = $("submitPickBtn");
+  const golferPick = form?.dataset.selectedGolfer || "";
+  const isCustomGolfer = form?.dataset.customGolfer === "true";
 
   if (!name) return showToast("Select your name.", "error");
-  if (!golferPick) return showToast("Enter a golfer.", "error");
+  if (!golferPick) return showToast("Choose a golfer from the list.", "error");
 
+  if (isCustomGolfer) showCustomGolferConfirm(name, golferPick);
+  else showPickConfirm(name, golferPick);
+}
+
+function closePickConfirm() {
+  $("pickConfirmModal")?.remove();
+  $("customGolferConfirmModal")?.remove();
+}
+
+function showCustomGolferConfirm(name, golferPick) {
+  closePickConfirm();
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.id = "customGolferConfirmModal";
+  modal.innerHTML = `
+    <div class="card pick-confirm-card" role="dialog" aria-modal="true" aria-labelledby="customGolferConfirmTitle">
+      <div>
+        <p class="eyebrow">Custom Golfer</p>
+        <h2 id="customGolferConfirmTitle">This golfer is not in the saved list.</h2>
+      </div>
+      <div class="warning-box">
+        <p>Only continue if the spelling below is exactly how you want the pick submitted.</p>
+        <strong>${escapeHTML(golferPick)}</strong>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" type="button" id="editCustomGolferBtn">Edit</button>
+        <button class="btn btn-primary" type="button" id="continueCustomGolferBtn">Continue</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  $("editCustomGolferBtn")?.addEventListener("click", closePickConfirm);
+  $("continueCustomGolferBtn")?.addEventListener("click", () => showPickConfirm(name, golferPick, true));
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closePickConfirm();
+  });
+  $("continueCustomGolferBtn")?.focus();
+}
+
+function showPickConfirm(name, golferPick, isCustomGolfer = false) {
+  closePickConfirm();
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.id = "pickConfirmModal";
+  modal.innerHTML = `
+    <div class="card pick-confirm-card" role="dialog" aria-modal="true" aria-labelledby="pickConfirmTitle">
+      <div>
+        <p class="eyebrow">Confirm Pick</p>
+        <h2 id="pickConfirmTitle">Submit this pick?</h2>
+      </div>
+      ${isCustomGolfer ? `
+        <div class="warning-box compact">
+          <p>This golfer is not in the saved list.</p>
+        </div>
+      ` : ""}
+      <div class="confirm-summary">
+        <div>
+          <span class="metric-label">Name</span>
+          <strong>${escapeHTML(name)}</strong>
+        </div>
+        <div>
+          <span class="metric-label">Golfer</span>
+          <strong>${escapeHTML(golferPick)}</strong>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" type="button" id="cancelPickConfirmBtn">Edit</button>
+        <button class="btn btn-primary" type="button" id="confirmPickSubmitBtn">Confirm</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  $("cancelPickConfirmBtn")?.addEventListener("click", closePickConfirm);
+  $("confirmPickSubmitBtn")?.addEventListener("click", () => performPickSubmission(name, golferPick));
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closePickConfirm();
+  });
+  $("confirmPickSubmitBtn")?.focus();
+}
+
+function closeSubmissionReceipt() {
+  $("submissionReceiptModal")?.remove();
+}
+
+function showSubmissionReceipt(name, golferPick, submittedAt = new Date()) {
+  closeSubmissionReceipt();
+  const time = submittedAt.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit"
+  });
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.id = "submissionReceiptModal";
+  modal.innerHTML = `
+    <div class="card pick-confirm-card receipt-card" role="dialog" aria-modal="true" aria-labelledby="submissionReceiptTitle">
+      <div>
+        <p class="eyebrow">Submitted</p>
+        <h2 id="submissionReceiptTitle">Pick submitted successfully.</h2>
+      </div>
+      <p class="receipt-line">${escapeHTML(name)} submitted ${escapeHTML(golferPick)} at ${escapeHTML(time)}.</p>
+      <button class="btn btn-primary" type="button" id="closeSubmissionReceiptBtn">Done</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  $("closeSubmissionReceiptBtn")?.addEventListener("click", closeSubmissionReceipt);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeSubmissionReceipt();
+  });
+  $("closeSubmissionReceiptBtn")?.focus();
+}
+
+async function performPickSubmission(name, golferPick) {
+  const button = $("confirmPickSubmitBtn");
+  const cancelButton = $("cancelPickConfirmBtn");
   button.disabled = true;
+  if (cancelButton) cancelButton.disabled = true;
   button.textContent = "Submitting...";
   try {
     await apiJSON("/submit", {
@@ -573,18 +744,24 @@ async function submitPick(event) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, golferPick })
     });
+    const submittedAt = new Date();
     showToast("Pick submitted.", "success");
     if (typeof confetti === "function") {
       confetti({ particleCount: 70, spread: 58, origin: { y: 0.78 }, colors: ["#168A4A", "#B68A2C", "#FFFFFF"] });
     }
     await fetchWeekPicks(state.cfStatus.currentWeek);
+    closePickConfirm();
     renderMain();
     switchScreen("pick");
+    showSubmissionReceipt(name, golferPick, submittedAt);
   } catch (error) {
     showToast(error.message || "Submission failed.", "error");
   } finally {
-    button.disabled = false;
-    button.textContent = "Submit Pick";
+    if (document.body.contains(button)) {
+      button.disabled = false;
+      if (cancelButton) cancelButton.disabled = false;
+      button.textContent = "Confirm";
+    }
   }
 }
 
