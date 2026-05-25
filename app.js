@@ -11,6 +11,9 @@ const state = {
   currentWeekData: null,
   currentViewWeek: null,
   historyView: "tournaments",
+  historySearch: "",
+  historyMember: "All",
+  historySort: "newest",
   lastFetchTime: null,
   adminKey: localStorage.getItem("golf_admin_key") || "",
   golfers: [],
@@ -277,6 +280,36 @@ function submittedNames(data = state.currentWeekData) {
   return [];
 }
 
+function findPriorPick(member, golferPick) {
+  if (!member || !golferPick) return null;
+  const target = normalizeName(golferPick);
+  if (!target) return null;
+  const tournaments = state.sheetData.tournaments || [];
+  const currentTournament = state.currentWeekData?.tournament;
+  const currentIndex = currentTournament
+    ? tournaments.map((tournament) => tournament.name).lastIndexOf(currentTournament)
+    : -1;
+
+  for (let index = tournaments.length - 1; index >= 0; index--) {
+    if (index === currentIndex) continue;
+    const tournament = tournaments[index];
+    const pick = tournament.picks?.find((item) => item.member === member);
+    if (!pick?.pick || pick.pick.toUpperCase() === "NO PICK") continue;
+    if (normalizeName(pick.pick) === target) return tournament;
+  }
+  return null;
+}
+
+function priorPickWarningHTML(priorPick, golferPick) {
+  if (!priorPick) return "";
+  return `
+    <div class="duplicate-warning" role="status">
+      <strong>Already used</strong>
+      <span>You picked ${escapeHTML(golferPick)} at ${escapeHTML(priorPick.name)}${priorPick.date ? ` (${escapeHTML(priorPick.date)})` : ""}.</span>
+    </div>
+  `;
+}
+
 function setTopContext() {
   const context = $("topContext");
   if (!context) return;
@@ -429,6 +462,7 @@ function renderPick() {
         <div class="review-card hidden" id="pickReview">
           <h3>Review pick</h3>
           <p id="pickReviewText"></p>
+          <div id="duplicatePickWarning"></div>
         </div>
         <button class="btn btn-primary" type="submit" id="submitPickBtn">Submit Pick</button>
       </form>
@@ -486,6 +520,7 @@ function bindPickForm() {
   const resetButton = $("pickAnotherGolferBtn");
   const review = $("pickReview");
   const reviewText = $("pickReviewText");
+  const duplicateWarning = $("duplicatePickWarning");
   const submitButton = $("submitPickBtn");
 
   form.dataset.selectedGolfer = "";
@@ -509,6 +544,7 @@ function bindPickForm() {
     reviewText.textContent = name && golfer
       ? `${name} is submitting ${golfer}.`
       : "Choose your name before submitting.";
+    duplicateWarning.innerHTML = name && golfer ? priorPickWarningHTML(findPriorPick(name, golfer), golfer) : "";
   };
 
   const renderDropdown = (matches) => {
@@ -618,8 +654,9 @@ async function submitPick(event) {
   if (!name) return showToast("Select your name.", "error");
   if (!golferPick) return showToast("Choose a golfer from the list.", "error");
 
-  if (isCustomGolfer) showCustomGolferConfirm(name, golferPick);
-  else showPickConfirm(name, golferPick);
+  const priorPick = findPriorPick(name, golferPick);
+  if (isCustomGolfer) showCustomGolferConfirm(name, golferPick, priorPick);
+  else showPickConfirm(name, golferPick, false, priorPick);
 }
 
 function closePickConfirm() {
@@ -627,7 +664,7 @@ function closePickConfirm() {
   $("customGolferConfirmModal")?.remove();
 }
 
-function showCustomGolferConfirm(name, golferPick) {
+function showCustomGolferConfirm(name, golferPick, priorPick = null) {
   closePickConfirm();
   const modal = document.createElement("div");
   modal.className = "modal-backdrop";
@@ -651,14 +688,14 @@ function showCustomGolferConfirm(name, golferPick) {
   document.body.appendChild(modal);
 
   $("editCustomGolferBtn")?.addEventListener("click", closePickConfirm);
-  $("continueCustomGolferBtn")?.addEventListener("click", () => showPickConfirm(name, golferPick, true));
+  $("continueCustomGolferBtn")?.addEventListener("click", () => showPickConfirm(name, golferPick, true, priorPick));
   modal.addEventListener("click", (event) => {
     if (event.target === modal) closePickConfirm();
   });
   $("continueCustomGolferBtn")?.focus();
 }
 
-function showPickConfirm(name, golferPick, isCustomGolfer = false) {
+function showPickConfirm(name, golferPick, isCustomGolfer = false, priorPick = null) {
   closePickConfirm();
   const modal = document.createElement("div");
   modal.className = "modal-backdrop";
@@ -674,6 +711,7 @@ function showPickConfirm(name, golferPick, isCustomGolfer = false) {
           <p>This golfer is not in the saved list.</p>
         </div>
       ` : ""}
+      ${priorPickWarningHTML(priorPick, golferPick)}
       <div class="confirm-summary">
         <div>
           <span class="metric-label">Name</span>
@@ -838,64 +876,288 @@ function rankRow(person, index, maxTotal) {
 function renderHistory() {
   const container = $("historyContent");
   if (!container) return;
-  container.innerHTML = state.historyView === "players" ? renderPlayersHTML() : renderTournamentHistoryHTML();
+  container.innerHTML = `
+    ${renderHistoryControls()}
+    <div id="historyResults">${renderHistoryBody()}</div>
+  `;
+  bindHistoryControls(container);
   bindAccordions(container);
 }
 
-function renderTournamentHistoryHTML() {
-  const tournaments = [...state.sheetData.tournaments].reverse();
-  if (!tournaments.length) return `<div class="empty-state">No tournament history loaded yet.</div>`;
-
-  return tournaments.map((tournament, index) => {
-    const sorted = [...tournament.picks].sort((a, b) => b.earnings - a.earnings);
-    const top = sorted[0] || {};
-    return `
-      <article class="accordion-card ${index === 0 ? "open" : ""}">
-        <button class="accordion-trigger" type="button" aria-expanded="${index === 0 ? "true" : "false"}">
-          <span class="row-main">
-            <strong>${escapeHTML(tournament.name)}</strong>
-            <span>${escapeHTML(tournament.date || "Date TBD")} · Top: ${escapeHTML(top.member || "-")} ${fmtDollar(top.earnings || 0)}</span>
-          </span>
-          <span class="chevron">⌄</span>
-        </button>
-        <div class="accordion-body">
-          ${sorted.map((pick, pickIndex) => historyPickRow(pick, pickIndex)).join("")}
-        </div>
-      </article>
-    `;
-  }).join("");
+function historySearch() {
+  return state.historySearch.trim().toLowerCase();
 }
 
-function historyPickRow(pick, index) {
+function historyMatches(values, term = historySearch()) {
+  if (!term) return true;
+  return values.some((value) => String(value ?? "").toLowerCase().includes(term));
+}
+
+function historySortOptions() {
+  if (state.historyView === "players") {
+    return [
+      ["used", "Most used"],
+      ["total", "Most earnings"],
+      ["best", "Best pick"],
+      ["missed", "Missed picks"],
+      ["name", "Name"]
+    ];
+  }
+  if (state.historyView === "golfers") {
+    return [
+      ["picked", "Most picked"],
+      ["earnings", "Most earnings"],
+      ["average", "Best average"],
+      ["name", "Name"]
+    ];
+  }
+  return [
+    ["newest", "Newest first"],
+    ["oldest", "Oldest first"],
+    ["total", "Highest total"],
+    ["top", "Best top pick"]
+  ];
+}
+
+function activeHistorySort() {
+  const options = historySortOptions();
+  if (!options.some(([value]) => value === state.historySort)) {
+    state.historySort = options[0][0];
+  }
+  return state.historySort;
+}
+
+function renderHistoryControls() {
+  const sort = activeHistorySort();
+  return `
+    <div class="history-toolbar card">
+      <div class="field-block">
+        <label for="historySearchInput">Search history</label>
+        <input id="historySearchInput" type="search" autocomplete="off" placeholder="Golfer, member, or tournament" value="${escapeHTML(state.historySearch)}">
+      </div>
+      <div class="history-filter-grid">
+        <div class="field-block">
+          <label for="historyMemberFilter">Member</label>
+          <select id="historyMemberFilter">
+            <option value="All" ${state.historyMember === "All" ? "selected" : ""}>All members</option>
+            ${MEMBERS.map((member) => `<option value="${escapeHTML(member)}" ${state.historyMember === member ? "selected" : ""}>${escapeHTML(member)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field-block">
+          <label for="historySortSelect">Sort</label>
+          <select id="historySortSelect">
+            ${historySortOptions().map(([value, label]) => `<option value="${value}" ${sort === value ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindHistoryControls(root) {
+  const refresh = () => refreshHistoryResults(root);
+  $("historySearchInput")?.addEventListener("input", (event) => {
+    state.historySearch = event.target.value;
+    refresh();
+  });
+  $("historyMemberFilter")?.addEventListener("change", (event) => {
+    state.historyMember = event.target.value;
+    refresh();
+  });
+  $("historySortSelect")?.addEventListener("change", (event) => {
+    state.historySort = event.target.value;
+    refresh();
+  });
+}
+
+function refreshHistoryResults(root = document) {
+  const results = $("historyResults");
+  if (!results) return;
+  results.innerHTML = renderHistoryBody();
+  bindAccordions(results);
+  qsa("[data-history-member]", results).forEach((button) => {
+    button.addEventListener("click", () => {
+      state.historyMember = button.dataset.historyMember || "All";
+      renderHistory();
+    });
+  });
+}
+
+function renderHistoryBody() {
+  if (state.historyView === "players") return renderPlayersHTML();
+  if (state.historyView === "golfers") return renderGolfersHTML();
+  return renderTournamentHistoryHTML();
+}
+
+function getTournamentSummary(tournament) {
+  const picks = tournament.picks || [];
+  const valid = picks.filter((pick) => pick.pick && pick.pick.toUpperCase() !== "NO PICK");
+  const sorted = [...picks].sort((a, b) => b.earnings - a.earnings);
+  const top = sorted[0] || {};
+  const total = picks.reduce((sum, pick) => sum + (pick.earnings || 0), 0);
+  const noPicks = picks.filter((pick) => !pick.pick || pick.pick.toUpperCase() === "NO PICK").length;
+  const popularity = {};
+  valid.forEach((pick) => {
+    const key = normalizeName(pick.pick);
+    if (!popularity[key]) popularity[key] = { name: pick.pick, count: 0 };
+    popularity[key].count++;
+  });
+  const popular = Object.values(popularity).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))[0] || null;
+  return { top, total, noPicks, popular, validCount: valid.length };
+}
+
+function historyPicksForTournament(tournament) {
+  const term = historySearch();
+  const titleMatches = historyMatches([tournament.name, tournament.date], term);
+  return (tournament.picks || [])
+    .filter((pick) => state.historyMember === "All" || pick.member === state.historyMember)
+    .filter((pick) => titleMatches || historyMatches([pick.member, pick.pick, fmtDollar(pick.earnings)], term))
+    .sort((a, b) => b.earnings - a.earnings);
+}
+
+function tournamentMatchesHistory(tournament) {
+  if (state.historyMember !== "All" && !(tournament.picks || []).some((pick) => pick.member === state.historyMember)) return false;
+  const term = historySearch();
+  if (!term) return true;
+  return historyMatches([tournament.name, tournament.date], term) || historyPicksForTournament(tournament).length > 0;
+}
+
+function sortTournamentHistory(items) {
+  const sort = activeHistorySort();
+  return [...items].sort((a, b) => {
+    if (sort === "oldest") return a.index - b.index;
+    if (sort === "total") return b.summary.total - a.summary.total;
+    if (sort === "top") return (b.summary.top.earnings || 0) - (a.summary.top.earnings || 0);
+    return b.index - a.index;
+  });
+}
+
+function renderTournamentHistoryHTML() {
+  const items = (state.sheetData.tournaments || [])
+    .map((tournament, index) => ({ tournament, index, summary: getTournamentSummary(tournament) }))
+    .filter(({ tournament }) => tournamentMatchesHistory(tournament));
+  if (!items.length) return `<div class="empty-state">No tournament history matches.</div>`;
+
+  const sorted = sortTournamentHistory(items);
+  return `
+    ${renderSeasonTimeline(items)}
+    ${sorted.map((item, index) => renderTournamentCard(item, index)).join("")}
+  `;
+}
+
+function renderSeasonTimeline(items) {
+  const ordered = [...items].sort((a, b) => a.index - b.index);
+  return `
+    <div class="history-timeline" aria-label="Season timeline">
+      ${ordered.map(({ tournament, summary }) => `
+        <div class="timeline-tile">
+          <span>${escapeHTML(tournament.date || "TBD")}</span>
+          <strong>${escapeHTML(tournament.name)}</strong>
+          <small>${escapeHTML(summary.top.member || "-")} · ${fmtCompactDollar(summary.top.earnings || 0)}</small>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderTournamentCard({ tournament, summary }, index) {
+  const picks = historyPicksForTournament(tournament);
+  const topEarnings = summary.top.earnings || 0;
+  return `
+    <article class="accordion-card history-card ${index === 0 ? "open" : ""}">
+      <button class="accordion-trigger" type="button" aria-expanded="${index === 0 ? "true" : "false"}">
+        <span class="row-main">
+          <strong>${escapeHTML(tournament.name)}</strong>
+          <span>${escapeHTML(tournament.date || "Date TBD")} · ${fmtCompactDollar(summary.total)} total · Top: ${escapeHTML(summary.top.member || "-")} ${fmtCompactDollar(topEarnings)}</span>
+        </span>
+        <span class="chevron">⌄</span>
+      </button>
+      <div class="history-story-strip">
+        <span class="story-chip">Best ${escapeHTML(summary.top.pick || "-")}</span>
+        <span class="story-chip">Popular ${summary.popular ? `${escapeHTML(summary.popular.name)} (${summary.popular.count})` : "-"}</span>
+        <span class="story-chip">${summary.noPicks} no pick${summary.noPicks === 1 ? "" : "s"}</span>
+      </div>
+      <div class="accordion-body">
+        ${picks.map((pick, pickIndex) => historyPickRow(pick, pickIndex, topEarnings)).join("") || `<div class="empty-state">No matching picks in this tournament.</div>`}
+      </div>
+    </article>
+  `;
+}
+
+function historyPickRow(pick, index, topEarnings = 0) {
   const noPick = !pick.pick || pick.pick.toUpperCase() === "NO PICK";
+  const tags = [];
+  if (pick.earnings > 0 && pick.earnings === topEarnings) tags.push("Top pick");
+  if (noPick) tags.push("No pick");
+  else if (!pick.earnings) tags.push("No cash");
   return `
     <div class="history-row">
       <span class="rank-num ${index === 0 && pick.earnings > 0 ? "gold" : ""}">${index + 1}</span>
       <div class="row-main">
         <span class="row-title">${escapeHTML(pick.member)}</span>
         <span class="row-subtitle">${noPick ? "No pick" : escapeHTML(pick.pick)}</span>
+        ${tags.length ? `<span class="history-tags">${tags.map((tag) => `<span>${escapeHTML(tag)}</span>`).join("")}</span>` : ""}
       </div>
       <span class="money ${pick.earnings > 0 ? "positive" : ""}">${fmtDollar(pick.earnings)}</span>
     </div>
   `;
 }
 
-function renderPlayersHTML() {
-  const golferMap = {};
-  state.sheetData.tournaments.forEach((tournament) => {
-    tournament.picks.forEach((pick) => {
-      if (!pick.pick || pick.pick.toUpperCase() === "NO PICK") return;
-      const name = pick.pick.trim();
-      if (!golferMap[name]) golferMap[name] = { count: 0, earnings: 0 };
-      golferMap[name].count++;
-      golferMap[name].earnings += pick.earnings;
-    });
+function getMemberHistory(member) {
+  const entries = [];
+  const used = [];
+  let noPicks = 0;
+  (state.sheetData.tournaments || []).forEach((tournament) => {
+    const pick = tournament.picks.find((item) => item.member === member);
+    if (!pick) return;
+    const noPick = !pick.pick || pick.pick.toUpperCase() === "NO PICK";
+    const entry = { tournament: tournament.name, date: tournament.date, golfer: pick.pick || "NO PICK", earnings: pick.earnings || 0, noPick };
+    entries.push(entry);
+    if (noPick) noPicks++;
+    else used.push(entry);
   });
+  const total = used.reduce((sum, item) => sum + item.earnings, 0);
+  const best = [...used].sort((a, b) => b.earnings - a.earnings)[0] || null;
+  return { member, entries, used, noPicks, total, best, uniqueUsed: new Set(used.map((item) => normalizeName(item.golfer))).size };
+}
 
-  const golferList = Object.entries(golferMap)
-    .map(([name, data]) => ({ name, ...data }))
-    .sort((a, b) => b.count - a.count || b.earnings - a.earnings)
-    .slice(0, 15);
+function topRemainingGolfers(usedEntries, limit = 5) {
+  const used = new Set(usedEntries.map((item) => normalizeName(item.golfer)));
+  const seen = new Set();
+  return (state.golfers || [])
+    .map((name) => ({ name, rank: state.owgrRanks[normalizeName(name)] }))
+    .filter((item) => Number.isFinite(item.rank) && item.rank <= 50 && !used.has(normalizeName(item.name)))
+    .filter((item) => {
+      const key = normalizeName(item.name);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, limit);
+}
+
+function sortMemberSummaries(items) {
+  const sort = activeHistorySort();
+  return [...items].sort((a, b) => {
+    if (sort === "total") return b.total - a.total;
+    if (sort === "best") return (b.best?.earnings || 0) - (a.best?.earnings || 0);
+    if (sort === "missed") return b.noPicks - a.noPicks;
+    if (sort === "name") return a.member.localeCompare(b.member);
+    return b.uniqueUsed - a.uniqueUsed;
+  });
+}
+
+function renderPlayersHTML() {
+  const memberItems = MEMBERS
+    .map(getMemberHistory)
+    .filter((summary) => state.historyMember === "All" || summary.member === state.historyMember)
+    .filter((summary) => historyMatches([summary.member]) || summary.entries.some((item) => historyMatches([item.golfer, item.tournament, item.date, fmtDollar(item.earnings)])));
+  const sortedMembers = sortMemberSummaries(memberItems);
+  const golferList = buildGolferHistory(state.historyMember)
+    .filter((golfer) => historyMatches([golfer.name, ...golfer.entries.flatMap((entry) => [entry.member, entry.tournament])]))
+    .sort((a, b) => b.count - a.count || b.total - a.total)
+    .slice(0, 8);
 
   return `
     <div class="card">
@@ -904,53 +1166,128 @@ function renderPlayersHTML() {
           <p class="eyebrow">Most Picked</p>
           <h2>Golfers</h2>
         </div>
+        <span class="status-pill neutral">${golferList.length}</span>
       </div>
       <div class="mini-list">
-        ${golferList.map((golfer, index) => `
-          <div class="player-row">
-            <span class="rank-num">${index + 1}</span>
-            <div class="row-main">
-              <span class="row-title">${escapeHTML(golfer.name)}</span>
-              <span class="row-subtitle">${golfer.count} pick${golfer.count === 1 ? "" : "s"}</span>
-            </div>
-            <span class="money">${fmtDollar(golfer.earnings)}</span>
-          </div>
-        `).join("") || `<div class="empty-state">No used players loaded yet.</div>`}
+        ${golferList.map((golfer, index) => compactGolferRow(golfer, index)).join("") || `<div class="empty-state">No golfer matches.</div>`}
       </div>
     </div>
-    <div style="height:12px"></div>
-    ${MEMBERS.map((member, index) => memberAccordion(member, index)).join("")}
+    <div class="history-spacer"></div>
+    ${sortedMembers.map((summary, index) => memberAccordion(summary, index)).join("") || `<div class="empty-state">No member history matches.</div>`}
   `;
 }
 
-function memberAccordion(member, index) {
-  const used = [];
-  state.sheetData.tournaments.forEach((tournament) => {
-    const pick = tournament.picks.find((item) => item.member === member);
-    if (pick && pick.pick && pick.pick.toUpperCase() !== "NO PICK") {
-      used.push({ tournament: tournament.date || tournament.name, golfer: pick.pick, earnings: pick.earnings });
-    }
-  });
-
+function memberAccordion(summary, index) {
+  const term = historySearch();
+  const visibleEntries = term && !historyMatches([summary.member])
+    ? summary.entries.filter((item) => historyMatches([item.golfer, item.tournament, item.date, fmtDollar(item.earnings)], term))
+    : summary.entries;
+  const remaining = topRemainingGolfers(summary.used);
   return `
-    <article class="accordion-card ${index === 0 ? "open" : ""}">
+    <article class="accordion-card history-card ${index === 0 ? "open" : ""}">
       <button class="accordion-trigger" type="button" aria-expanded="${index === 0 ? "true" : "false"}">
         <span class="row-main">
-          <strong>${escapeHTML(member)}</strong>
-          <span>${new Set(used.map((item) => item.golfer)).size} players used</span>
+          <strong>${escapeHTML(summary.member)}</strong>
+          <span>${summary.uniqueUsed} used · ${fmtCompactDollar(summary.total)} total · Best: ${escapeHTML(summary.best?.golfer || "-")} ${fmtCompactDollar(summary.best?.earnings || 0)}</span>
+        </span>
+        <span class="chevron">⌄</span>
+      </button>
+      <div class="member-summary-grid">
+        <div><span>Used</span><strong>${summary.uniqueUsed}</strong></div>
+        <div><span>No picks</span><strong>${summary.noPicks}</strong></div>
+        <div><span>Total</span><strong>${fmtCompactDollar(summary.total)}</strong></div>
+      </div>
+      <div class="accordion-body">
+        <div class="history-section-label">Used / submitted</div>
+        ${visibleEntries.map((item) => `
+          <div class="player-row">
+            <div class="row-main">
+              <span class="row-title">${item.noPick ? "No pick" : escapeHTML(item.golfer)}</span>
+              <span class="row-subtitle">${escapeHTML(item.tournament)}${item.date ? ` · ${escapeHTML(item.date)}` : ""}</span>
+            </div>
+            <span class="money ${item.earnings > 0 ? "positive" : ""}">${fmtDollar(item.earnings)}</span>
+          </div>
+        `).join("") || `<div class="empty-state">No matching picks.</div>`}
+        <div class="history-section-label">Top remaining OWGR</div>
+        <div class="remaining-row">
+          ${remaining.map((item) => `<span class="pill">#${item.rank} ${escapeHTML(item.name)}</span>`).join("") || `<span class="help-text">OWGR data unavailable.</span>`}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function buildGolferHistory(member = state.historyMember) {
+  const groups = {};
+  (state.sheetData.tournaments || []).forEach((tournament) => {
+    tournament.picks.forEach((pick) => {
+      if (member !== "All" && pick.member !== member) return;
+      if (!pick.pick || pick.pick.toUpperCase() === "NO PICK") return;
+      const key = normalizeName(pick.pick);
+      if (!groups[key]) groups[key] = { name: pick.pick, count: 0, total: 0, entries: [] };
+      groups[key].count++;
+      groups[key].total += pick.earnings || 0;
+      groups[key].entries.push({ member: pick.member, tournament: tournament.name, date: tournament.date, earnings: pick.earnings || 0 });
+    });
+  });
+  return Object.values(groups).map((golfer) => ({
+    ...golfer,
+    avg: golfer.count ? golfer.total / golfer.count : 0,
+    best: [...golfer.entries].sort((a, b) => b.earnings - a.earnings)[0] || null
+  }));
+}
+
+function sortGolfers(items) {
+  const sort = activeHistorySort();
+  return [...items].sort((a, b) => {
+    if (sort === "earnings") return b.total - a.total;
+    if (sort === "average") return b.avg - a.avg;
+    if (sort === "name") return a.name.localeCompare(b.name);
+    return b.count - a.count || b.total - a.total;
+  });
+}
+
+function renderGolfersHTML() {
+  const golfers = sortGolfers(buildGolferHistory())
+    .filter((golfer) => historyMatches([golfer.name, ...golfer.entries.flatMap((entry) => [entry.member, entry.tournament, entry.date, fmtDollar(entry.earnings)])]));
+  if (!golfers.length) return `<div class="empty-state">No golfer history matches.</div>`;
+  return golfers.map((golfer, index) => golferAccordion(golfer, index)).join("");
+}
+
+function compactGolferRow(golfer, index) {
+  return `
+    <div class="player-row">
+      <span class="rank-num">${index + 1}</span>
+      <div class="row-main">
+        <span class="row-title">${escapeHTML(golfer.name)}</span>
+        <span class="row-subtitle">${golfer.count} pick${golfer.count === 1 ? "" : "s"} · Avg ${fmtCompactDollar(golfer.avg)}</span>
+      </div>
+      <span class="money">${fmtCompactDollar(golfer.total)}</span>
+    </div>
+  `;
+}
+
+function golferAccordion(golfer, index) {
+  const entries = [...golfer.entries].sort((a, b) => b.earnings - a.earnings);
+  return `
+    <article class="accordion-card history-card ${index === 0 ? "open" : ""}">
+      <button class="accordion-trigger" type="button" aria-expanded="${index === 0 ? "true" : "false"}">
+        <span class="row-main">
+          <strong>${escapeHTML(golfer.name)}</strong>
+          <span>${golfer.count} pick${golfer.count === 1 ? "" : "s"} · ${fmtCompactDollar(golfer.total)} total · Best: ${escapeHTML(golfer.best?.member || "-")} ${fmtCompactDollar(golfer.best?.earnings || 0)}</span>
         </span>
         <span class="chevron">⌄</span>
       </button>
       <div class="accordion-body">
-        ${used.map((item) => `
+        ${entries.map((entry) => `
           <div class="player-row">
             <div class="row-main">
-              <span class="row-title">${escapeHTML(item.golfer)}</span>
-              <span class="row-subtitle">${escapeHTML(item.tournament)}</span>
+              <span class="row-title">${escapeHTML(entry.member)}</span>
+              <span class="row-subtitle">${escapeHTML(entry.tournament)}${entry.date ? ` · ${escapeHTML(entry.date)}` : ""}</span>
             </div>
-            <span class="money ${item.earnings > 0 ? "positive" : ""}">${fmtDollar(item.earnings)}</span>
+            <span class="money ${entry.earnings > 0 ? "positive" : ""}">${fmtDollar(entry.earnings)}</span>
           </div>
-        `).join("") || `<div class="empty-state">No players used yet.</div>`}
+        `).join("")}
       </div>
     </article>
   `;
